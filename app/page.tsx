@@ -27,12 +27,13 @@ export default function LandingPage() {
 
   useEffect(() => {
     AOS.init({
-      duration: 800, // Animation duration in milliseconds
+      duration: 800,
+      once: true,
     });
   }, []);
 
   return (
-    <div className="flex flex-col items-center justify-around overflow-hidden gap-y-4 p-4 bg-tertiary text-center text-black">
+    <div className="flex flex-col items-center justify-around p-4 overflow-hidden text-center text-black gap-y-4 bg-tertiary">
       <div className="flex flex-col items-center gap-y-2">
         <Image
           src="/icons/icon.png"
@@ -48,10 +49,10 @@ export default function LandingPage() {
         </h1>
       </div>
 
-      <ul className="flex flex-col gap-0 w-full" data-aos="zoom-out-up">
+      <ul className="flex flex-col w-full gap-0" data-aos="zoom-out-up">
         {features.map((feature, index) => (
           <li
-            className="w-full flex flex-col md:grid md:grid-cols-2 gap-0"
+            className="flex flex-col w-full md:grid md:grid-cols-2 gap-0"
             key={index}
           >
             <div
@@ -73,7 +74,7 @@ export default function LandingPage() {
         ))}
       </ul>
 
-      <Link href="/sign-up" className="btn-cta my-4" data-aos="zoom-in-right">
+      <Link href="/sign-up" className="my-4 btn-cta" data-aos="zoom-in-right">
         Take Your Reviews To The Next Level !
       </Link>
     </div>
