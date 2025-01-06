@@ -1,4 +1,5 @@
 "use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect } from "react";
@@ -27,56 +28,91 @@ export default function LandingPage() {
 
   useEffect(() => {
     AOS.init({
+      offset: 100,
       duration: 800,
       once: true,
     });
   }, []);
 
   return (
-    <div className="flex flex-col items-center justify-around p-4 overflow-hidden text-center text-black gap-y-4 bg-tertiary">
-      <div className="flex flex-col items-center gap-y-2">
-        <Image
-          src="/icons/icon.png"
-          alt="App Logo"
-          height={510}
-          width={510}
-          className="h-[5rem] w-[5rem] rounded-xl shadow-inner"
-          data-aos="fade-left"
-        />
-
-        <h1 className="text-2xl font-bold" data-aos="fade-right">
-          MemFlip
-        </h1>
+    <div className="min-h-screen bg-gradient-to-b from-tertiary to-tertiary/50">
+      {/* Hero Section */}
+      <div className="container px-4 py-8 mx-auto sm:py-12">
+        <div className="flex flex-col items-center text-center space-y-6">
+          <div className="relative group" data-aos="fade-down">
+            <div className="absolute opacity-25 -inset-1 bg-gradient-to-r from-indigo-500 to-violet-500 rounded-xl blur group-hover:opacity-75 transition duration-1000"></div>
+            <Image
+              src="/icons/icon.png"
+              alt="App Logo"
+              height={510}
+              width={510}
+              className="relative w-20 h-20 shadow-xl sm:h-24 sm:w-24 lg:h-28 lg:w-28 rounded-xl transform transition duration-500 group-hover:scale-105"
+            />
+          </div>
+          <h1
+            className="text-3xl font-bold text-transparent sm:text-4xl lg:text-5xl bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600"
+            data-aos="fade-up"
+          >
+            MemFlip
+          </h1>
+        </div>
       </div>
 
-      <ul className="flex flex-col w-full gap-0" data-aos="zoom-out-up">
-        {features.map((feature, index) => (
-          <li
-            className="flex flex-col w-full md:grid md:grid-cols-2 gap-0"
-            key={index}
-          >
+      {/* Features Section */}
+      <div className="container px-4 py-8 mx-auto">
+        <div className="grid gap-8 sm:gap-12">
+          {features.map((feature, index) => (
             <div
-              className={`${index % 2 === 0 ? "border-l-2" : "md:border-r-2 md:order-2"} border-y-2 border-x-2 md:border-y-2 border-indigo-500 shadow-inner bg-gradient-to-r from-indigo-300 to-violet-300 p-2 flex items-center justify-center h-[10em] md:h-auto`}
-              data-aos="zoom-in"
+              key={index}
+              className={`group grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8 items-center ${
+                index % 2 === 0 ? "lg:grid-flow-col" : "lg:grid-flow-col-dense"
+              }`}
+              data-aos="fade-up"
             >
-              {feature.text}
+              <div
+                className={`relative p-6 sm:p-8 rounded-2xl bg-gradient-to-r from-indigo-100/80 to-violet-100/80 backdrop-blur-sm
+                  border border-indigo-200 shadow-lg transform transition duration-500 group-hover:scale-105
+                  ${index % 2 === 0 ? "lg:order-1" : "lg:order-2"}`}
+                data-aos={index % 2 === 0 ? "fade-right" : "fade-left"}
+              >
+                <p className="text-lg font-medium text-gray-800 sm:text-xl">
+                  {feature.text}
+                </p>
+              </div>
+
+              <div
+                className={`relative rounded-2xl overflow-hidden shadow-xl transform transition duration-500 group-hover:scale-105
+                  ${index % 2 === 0 ? "lg:order-2" : "lg:order-1"}`}
+                data-aos={index % 2 === 0 ? "fade-left" : "fade-right"}
+              >
+                <Image
+                  src={feature.imageURL}
+                  alt={feature.text}
+                  width={960}
+                  height={571}
+                  className="w-full h-auto"
+                  quality={90}
+                />
+                <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-indigo-500/10 to-violet-500/10" />
+              </div>
             </div>
+          ))}
+        </div>
+      </div>
 
-            <Image
-              src={feature.imageURL}
-              alt={feature.text}
-              height={571}
-              width={960}
-              data-aos={`zoom-out-${index % 2 === 0 ? "left" : "right"}`}
-              className={`border-x-2 ${index === features.length - 1 && "border-b-2"} md:border-y-2 md:border-l-2 md:border-r border-indigo-500 h-full`}
-            />
-          </li>
-        ))}
-      </ul>
-
-      <Link href="/sign-up" className="my-4 btn-cta" data-aos="zoom-in-right">
-        Take Your Reviews To The Next Level !
-      </Link>
+      {/* CTA Section */}
+      <div className="container px-4 py-12 mx-auto sm:py-16">
+        <div className="flex justify-center" data-aos="zoom-in">
+          <Link href="/sign-up">
+            <button className="relative px-8 py-6 text-lg text-white shadow-lg group sm:text-xl rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 transform transition duration-500 hover:scale-105">
+              <span className="relative z-10">
+                Take Your Reviews To The Next Level!
+              </span>
+              <div className="absolute inset-0 opacity-25 bg-gradient-to-r from-indigo-400 to-violet-400 rounded-xl blur group-hover:opacity-50 transition duration-500"></div>
+            </button>
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }
