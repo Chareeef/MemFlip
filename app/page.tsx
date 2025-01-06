@@ -38,7 +38,7 @@ export default function LandingPage() {
     <div className="min-h-screen bg-gradient-to-b from-tertiary to-tertiary/50">
       {/* Hero Section */}
       <div className="container px-4 py-8 mx-auto sm:py-12">
-        <div className="flex flex-col items-center text-center space-y-6">
+        <div className="flex flex-col items-center overflow-hidden text-center space-y-6">
           <div className="relative group" data-aos="fade-down">
             <div className="absolute opacity-25 -inset-1 bg-gradient-to-r from-indigo-500 to-violet-500 rounded-xl blur group-hover:opacity-75 transition duration-1000"></div>
             <Image
@@ -50,7 +50,7 @@ export default function LandingPage() {
             />
           </div>
           <h1
-            className="text-3xl font-bold text-transparent sm:text-4xl lg:text-5xl bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600"
+            className="p-2 text-3xl font-bold text-white sm:text-4xl lg:text-5xl bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600"
             data-aos="fade-up"
           >
             MemFlip
@@ -59,7 +59,7 @@ export default function LandingPage() {
       </div>
 
       {/* Features Section */}
-      <div className="container px-4 py-8 mx-auto">
+      <div className="container px-4 py-8 mx-auto overflow-hidden">
         <div className="grid gap-8 sm:gap-12">
           {features.map((feature, index) => (
             <div
@@ -75,7 +75,7 @@ export default function LandingPage() {
                   ${index % 2 === 0 ? "lg:order-1" : "lg:order-2"}`}
                 data-aos={index % 2 === 0 ? "fade-right" : "fade-left"}
               >
-                <p className="text-lg font-medium text-gray-800 sm:text-xl">
+                <p className="text-lg font-medium text-center text-gray-800 sm:text-xl">
                   {feature.text}
                 </p>
               </div>

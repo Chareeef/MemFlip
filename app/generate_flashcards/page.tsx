@@ -68,12 +68,12 @@ function Modal({
     <div
       className={`${isModalOpen ? "fixed" : "hidden"} w-[100dvw] h-[100dvh] top-0 bg-black/40 flex items-center justify-center overflow-y-auto`}
     >
-      <div className="flex flex-col p-4 items-center justify-evenly gap-y-4">
+      <div className="flex flex-col items-center p-4 justify-evenly gap-y-4">
         <ErrorAlert error={error} openError={openError} />
         <div className="bg-slate-300 rounded-lg min-w-[33dvw] flex flex-col items-center p-4">
           {/* Inputs */}
-          <form className="flex flex-col gap-y-4 shadow-2xl border-y-2 border-gray-400 p-4 my-4">
-            <legend className="text-xl font-bold mb-2">
+          <form className="flex flex-col p-4 my-4 border-gray-400 shadow-2xl gap-y-4 border-y-2">
+            <legend className="mb-2 text-xl font-bold">
               What would you like to learn today?
             </legend>
             <div className="flex flex-col items-center">
@@ -83,7 +83,7 @@ function Modal({
                 placeholder="Subject"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
-                className="rounded border-gray-400 focus:border-gray-600 p-1 text-center mt-4"
+                className="p-1 mt-4 text-center border-gray-400 rounded focus:border-gray-600"
               />
             </div>
             <div className="flex flex-col items-center">
@@ -95,7 +95,7 @@ function Modal({
                 onChange={(e) =>
                   setNumberOfFlashcards(parseInt(e.target.value))
                 }
-                className="rounded border-gray-400 focus:border-gray-600 w-fit p-1 text-center mt-4"
+                className="p-1 mt-4 text-center border-gray-400 rounded focus:border-gray-600 w-fit"
               />
             </div>
           </form>
@@ -149,23 +149,24 @@ export default function GenerateFlashcards() {
   }
 
   return (
-    <div className="min-h-[70vh] flex flex-col items-center justify-center gap-4 p-4 bg-tertiary text-center text-black">
+    <div className="min-h-[70vh] flex flex-col items-center relative justify-center w-full gap-4 p-4 bg-tertiary text-center text-black">
       <ErrorAlert error={error} openError={openError} />
       {flashcards.length > 0 ? (
         <>
-          <h1 className="font-bold text-xl">{subject}</h1>
+          <h1 className="text-xl font-bold">{subject}</h1>
+
           <Flashcards flashcards={flashcards} />
 
-          <div className="flex flex-col md:flex-row items-center gap-4">
+          <div className="flex flex-col items-center md:flex-row gap-4">
             <button
-              className="btn-cta w-full md:w-fit"
+              className="w-full btn-cta md:w-fit"
               onClick={() => setIsModalOpen(true)}
             >
               Generate Other Flashcards
             </button>
 
             <button
-              className="btn-save w-full md:w-fit"
+              className="w-full btn-save md:w-fit"
               onClick={handleSaveFlashcards}
             >
               Save Flashcards

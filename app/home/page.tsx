@@ -1,39 +1,52 @@
 "use client";
-import { useUser } from "@clerk/nextjs";
 import Image from "next/image";
 import Link from "next/link";
-import ErrorAlert from "../components/Error";
-import { Dispatch, SetStateAction, useEffect, useState } from "react";
-import { showError } from "../utils";
+import { useState } from "react";
 import { Flashcard } from "@/types";
 import Flashcards from "../components/Flashcards";
+import { useUser } from "@clerk/nextjs";
+import ErrorAlert from "../components/Error";
+import { useEffect } from "react";
+import { showError } from "../utils";
 
 function FlashcardsModal({
   subject,
   flashcards,
-  isOpenFlashcardsModal,
-  setIsOpenFlashcardsModal,
+  isOpen,
+  onClose,
 }: {
   subject: string;
   flashcards: Flashcard[];
-  isOpenFlashcardsModal: boolean;
-  setIsOpenFlashcardsModal: Dispatch<SetStateAction<boolean>>;
+  isOpen: boolean;
+  onClose: () => void;
 }) {
+  if (!isOpen) return null;
+
   return (
-    <div
-      className={`${isOpenFlashcardsModal ? "fixed" : "hidden"} w-[100dvw] h-[100dvh] flex items-center top-0 left-0 p-4 bg-black/40`}
-    >
-      <div className="max-h-[95dvh] w-full border-2 border-white overflow-y-auto">
-        <div className="relative w-full flex flex-col items-center justify-evenly p-4 gap-y-4 bg-white">
-          <button
-            onClick={() => setIsOpenFlashcardsModal(false)}
-            className="absolute top-4 right-4 bg-red-600 w-4 h-4 flex flex-col items-center justify-center rounded-full p-4 text-white font-bold"
-          >
-            X
-          </button>
-          <h2 className="max-w-[70%] font-bold text-xl text-center">
-            {subject}
-          </h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold text-indigo-800">{subject}</h2>
+            <button
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-700 transition duration-150 ease-in-out"
+            >
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
           <Flashcards flashcards={flashcards} />
         </div>
       </div>
@@ -42,28 +55,28 @@ function FlashcardsModal({
 }
 
 function FlashcardsSubjects({
-  flashcardsSubjects,
-  openFlashcardsSet,
+  subjects,
+  onSubjectClick,
 }: {
-  flashcardsSubjects: string[];
-  openFlashcardsSet: (subject: string) => Promise<void>;
+  subjects: string[];
+  onSubjectClick: (subject: string) => void;
 }) {
   return (
-    <ul className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full">
-      {flashcardsSubjects.map((subject, index) => (
-        <li
+    <div className="w-full grid sm:grid-cols-2 md:grid-cols-4 gap-4">
+      {subjects.map((subject, index) => (
+        <button
           key={index}
-          onClick={() => openFlashcardsSet(subject)}
-          className="relative h-[5rem] md:h-[10rem] shadow-inner border border-slate-400 rounded-r-lg bg-slate-200"
+          onClick={() => onSubjectClick(subject)}
+          className="h-24 overflow-auto break-words bg-white rounded-lg shadow-md sm:h-32 hover:shadow-lg transition-shadow duration-300 group"
         >
-          <div className="absolute h-full w-full bg-slate-200 top-1 left-1 border border-slate-400 rounded-r-lg">
-            <div className="flex justify-center items-center absolute h-full w-full bg-slate-200 top-1 left-1 border border-slate-400 rounded-r-lg break-words">
+          <div className="flex items-center justify-center w-full h-full p-4 bg-gradient-to-br from-indigo-100 to-indigo-200 group-hover:from-indigo-200 group-hover:to-indigo-300 transition-colors duration-300">
+            <span className="font-medium text-center text-indigo-800 break-words group-hover:text-indigo-900 transition-colors duration-300">
               {subject}
-            </div>
+            </span>
           </div>
-        </li>
+        </button>
       ))}
-    </ul>
+    </div>
   );
 }
 
@@ -106,8 +119,8 @@ export default function Home() {
 
   if (!isLoaded || !user) {
     return (
-      <div className="grow flex flex-col items-center justify-center">
-        <p className="font-bold text-white ">Wait a moment...</p>
+      <div className="flex flex-col items-center justify-center grow">
+        <p className="font-bold text-white">Wait a moment...</p>
       </div>
     );
   }
@@ -134,45 +147,58 @@ export default function Home() {
   }
 
   return (
-    <>
-      <ErrorAlert error={error} openError={openError} />
-      {/* Profile infos */}
-      <div className="flex flex-col items-center justify-around p-4 bg-tertiary text-center text-black">
-        <Image
-          src={user?.imageUrl}
-          alt="Profile picture"
-          width={150}
-          height={150}
-          className="rounded-full border-4 border-amber-600 mb-4"
-        />
-
-        <h2 className="font-bold">{user?.fullName}</h2>
-      </div>
-
-      {/* Card sets */}
-      <div className="flex flex-col items-center justify-around p-4 bg-tertiary text-center text-black">
-        <Link href="/generate_flashcards" className="btn-cta mb-4">
-          Generate New Flashcards
-        </Link>
-
-        <div className="w-full flex flex-col p-4 items-center border-4 border-indigo-800 rounded-lg">
-          {flashcardsSubjects.length > 0 ? (
-            <FlashcardsSubjects
-              flashcardsSubjects={flashcardsSubjects}
-              openFlashcardsSet={openFlashcardsSet}
+    <div className="min-h-screen px-4 py-8 bg-gradient-to-b from-indigo-100 to-indigo-200 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl">
+        {/* Profile info */}
+        <div className="mb-8 overflow-hidden bg-white rounded-lg shadow-lg">
+          <div className="flex flex-col items-center justify-center p-6 sm:p-8 sm:flex-row">
+            <Image
+              src={user.imageUrl}
+              alt="Profile picture"
+              width={120}
+              height={120}
+              className="mb-4 border-4 border-indigo-500 rounded-full sm:mb-0 sm:mr-6"
             />
-          ) : (
-            <h2 className="italic">No Flashcards Yet</h2>
-          )}
+            <div className="text-center sm:text-left">
+              <h2 className="mb-2 text-2xl font-bold text-gray-800">
+                {user.fullName}
+              </h2>
+              <p className="text-indigo-600">Flashcard Enthusiast</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Generate new flashcards button */}
+        <div className="mb-8 text-center">
+          <Link
+            href="/generate_flashcards"
+            className="inline-block px-6 py-3 font-bold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition duration-300 ease-in-out transform hover:scale-105"
+          >
+            Generate New Flashcards
+          </Link>
+        </div>
+
+        {/* Flashcard sets */}
+        <div className="overflow-hidden bg-white rounded-lg shadow-lg">
+          <div className="p-6 sm:p-8">
+            <h3 className="mb-4 text-xl font-semibold text-gray-800">
+              Your Flashcard Sets
+            </h3>
+            <FlashcardsSubjects
+              subjects={flashcardsSubjects}
+              onSubjectClick={openFlashcardsSet}
+            />
+          </div>
         </div>
       </div>
 
       <FlashcardsModal
-        flashcards={openedFlashcards}
-        isOpenFlashcardsModal={isOpenFlashcardsModal}
-        setIsOpenFlashcardsModal={setIsOpenFlashcardsModal}
         subject={openedSubject}
+        flashcards={openedFlashcards}
+        isOpen={isOpenFlashcardsModal}
+        onClose={() => setIsOpenFlashcardsModal(false)}
       />
-    </>
+      <ErrorAlert error={error} openError={openError} />
+    </div>
   );
 }

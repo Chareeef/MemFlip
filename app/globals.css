@@ -3,39 +3,52 @@
 @tailwind utilities;
 
 * {
-	margin: 0;
-	padding: 0;
-	box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
 .bg-primary {
-	@apply bg-indigo-400;
+  @apply bg-indigo-400;
 }
 
 .bg-secondary {
-	@apply bg-indigo-600;
+  @apply bg-indigo-600;
 }
 
 .bg-tertiary {
-	@apply bg-indigo-300;
+  @apply bg-indigo-300;
 }
 
 .btn-header {
-	@apply border-2 border-cyan-500 rounded-lg py-1 px-4 hover:scale-105 transition ease-out duration-300
+  @apply border-2 border-cyan-500 rounded-lg py-1 px-4 hover:scale-105 transition ease-out duration-300;
 }
 
 .btn-cta {
-	@apply w-fit bg-indigo-800 border-2 border-cyan-600 rounded-lg py-1 px-4 text-white hover:scale-125 transition ease-out duration-300
+  @apply w-fit bg-indigo-800 border-2 border-cyan-600 rounded-lg py-1 px-4 text-white hover:scale-125 transition ease-out duration-300;
 }
 
 .btn-save {
-	@apply w-full md:w-fit bg-teal-800 border-2 border-cyan-600 rounded-lg py-1 px-4 text-white hover:scale-125 transition ease-out duration-300
+  @apply w-full md:w-fit bg-teal-800 border-2 border-cyan-600 rounded-lg py-1 px-4 text-white hover:scale-125 transition ease-out duration-300;
 }
 
 .btn-close {
-	@apply w-fit bg-red-600 border-2 border-amber-600 rounded-lg py-1 px-4 text-white hover:scale-125 transition ease-out duration-300
+  @apply w-fit bg-red-600 border-2 border-amber-600 rounded-lg py-1 px-4 text-white hover:scale-125 transition ease-out duration-300;
 }
 
-.rotateFlashcard {
-	transform: rotateY(1turn);
+/* Flashcard flip effect */
+.perspective {
+  perspective: 1000px;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
 }
