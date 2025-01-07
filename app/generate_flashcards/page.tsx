@@ -66,47 +66,64 @@ function Modal({
 
   return (
     <div
-      className={`${isModalOpen ? "fixed" : "hidden"} w-[100dvw] h-[100dvh] top-0 bg-black/40 flex items-center justify-center overflow-y-auto`}
+      className={`${
+        isModalOpen ? "fixed" : "hidden"
+      } inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50`}
     >
-      <div className="flex flex-col items-center p-4 justify-evenly gap-y-4">
-        <ErrorAlert error={error} openError={openError} />
-        <div className="bg-slate-300 rounded-lg min-w-[33dvw] flex flex-col items-center p-4">
-          {/* Inputs */}
-          <form className="flex flex-col p-4 my-4 border-gray-400 shadow-2xl gap-y-4 border-y-2">
-            <legend className="mb-2 text-xl font-bold">
-              What would you like to learn today?
-            </legend>
-            <div className="flex flex-col items-center">
-              <label className="font-bold">Subject</label>
+      <div className="w-full max-w-md bg-white rounded-lg shadow-xl">
+        <div className="p-6">
+          <ErrorAlert error={error} openError={openError} />
+          <h2 className="mb-4 text-2xl font-bold text-gray-800">
+            Generate Flashcards
+          </h2>
+          <form className="space-y-4">
+            <div>
+              <label
+                htmlFor="subject"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Subject
+              </label>
               <input
                 type="text"
-                placeholder="Subject"
+                id="subject"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
-                className="p-1 mt-4 text-center border-gray-400 rounded focus:border-gray-600"
+                className="block w-full px-2 mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                placeholder="Enter subject"
               />
             </div>
-            <div className="flex flex-col items-center">
-              <label className="font-bold">Number of Flashcards</label>
+            <div>
+              <label
+                htmlFor="numberOfFlashcards"
+                className="block text-sm font-medium text-gray-700"
+              >
+                Number of Flashcards
+              </label>
               <input
                 type="number"
-                placeholder="Number of Flashcards"
+                id="numberOfFlashcards"
                 value={numberOfFlashcards > 0 ? numberOfFlashcards : ""}
                 onChange={(e) =>
                   setNumberOfFlashcards(parseInt(e.target.value))
                 }
-                className="p-1 mt-4 text-center border-gray-400 rounded focus:border-gray-600 w-fit"
+                className="block w-full pl-2 pr-1 mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
+                placeholder="Enter number of flashcards"
               />
             </div>
           </form>
-
-          {/* Buttons */}
-          <div className="flex justify-around gap-x-4">
-            <button className="btn-cta" onClick={handleRequest}>
-              Generate
-            </button>
-            <button className="btn-close" onClick={() => setIsModalOpen(false)}>
+          <div className="flex justify-end mt-6 space-x-3">
+            <button
+              className="px-4 py-2 text-gray-800 bg-gray-300 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 transition duration-300"
+              onClick={() => setIsModalOpen(false)}
+            >
               Close
+            </button>
+            <button
+              className="px-4 py-2 text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 transition duration-300"
+              onClick={handleRequest}
+            >
+              Generate
             </button>
           </div>
         </div>
@@ -149,36 +166,44 @@ export default function GenerateFlashcards() {
   }
 
   return (
-    <div className="min-h-[70vh] flex flex-col items-center relative justify-center w-full gap-4 p-4 bg-tertiary text-center text-black">
-      <ErrorAlert error={error} openError={openError} />
-      {flashcards.length > 0 ? (
-        <>
-          <h1 className="text-xl font-bold">{subject}</h1>
-
-          <Flashcards flashcards={flashcards} />
-
-          <div className="flex flex-col items-center md:flex-row gap-4">
+    <div className="min-h-screen px-4 py-8 bg-gradient-to-b from-indigo-100 to-indigo-200 sm:px-6 lg:px-8">
+      <div className="max-w-3xl mx-auto">
+        <ErrorAlert error={error} openError={openError} />
+        {flashcards.length > 0 ? (
+          <div className="space-y-8">
+            <h1 className="text-3xl font-bold text-center text-indigo-800">
+              {subject}
+            </h1>
+            <Flashcards flashcards={flashcards} />
+            <div className="flex flex-col items-center justify-center sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
+              <button
+                className="w-full px-6 py-3 text-white bg-indigo-600 sm:w-auto rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 transition duration-300"
+                onClick={() => setIsModalOpen(true)}
+              >
+                Generate Other Flashcards
+              </button>
+              <button
+                className="w-full px-6 py-3 text-white bg-green-600 sm:w-auto rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 transition duration-300"
+                onClick={handleSaveFlashcards}
+              >
+                Save Flashcards
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center">
+            <h1 className="mb-8 text-3xl font-bold text-indigo-800">
+              Generate Flashcards
+            </h1>
             <button
-              className="w-full btn-cta md:w-fit"
+              className="px-6 py-3 text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 transition duration-300"
               onClick={() => setIsModalOpen(true)}
             >
-              Generate Other Flashcards
-            </button>
-
-            <button
-              className="w-full btn-save md:w-fit"
-              onClick={handleSaveFlashcards}
-            >
-              Save Flashcards
+              Generate New Flashcards
             </button>
           </div>
-        </>
-      ) : (
-        <button className="btn-cta" onClick={() => setIsModalOpen(true)}>
-          Generate New Flashcards
-        </button>
-      )}
-
+        )}
+      </div>
       <Modal
         isModalOpen={isModalOpen}
         setIsModalOpen={setIsModalOpen}
