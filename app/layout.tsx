@@ -30,7 +30,7 @@ export default function RootLayout({
           />
         </head>
 
-        <body className="flex flex-col min-h-screen bg-primary">
+        <body className="flex flex-col min-h-svh bg-primary">
           <Header />
           <main className="flex flex-col p-4 grow gap-y-4">{children}</main>
           <Footer />

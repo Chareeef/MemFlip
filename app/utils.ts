@@ -1,11 +1,16 @@
 import { Dispatch, SetStateAction } from "react";
 
-export const showError = (
-  error: string,
-  setError: Dispatch<SetStateAction<string>>,
-  setOpenError: Dispatch<SetStateAction<boolean>>,
+export const showAlert = (
+  message: string,
+  alertType: string,
+  setAlert: Dispatch<SetStateAction<string>>,
+  setOpenAlert: Dispatch<SetStateAction<boolean>>,
+  setAlertType: Dispatch<SetStateAction<string>>,
 ) => {
-  setError(error);
-  setOpenError(true);
-  setTimeout(() => setOpenError(false), 3000);
+  setAlert(message);
+  setAlertType(alertType);
+  setOpenAlert(true);
+  if (alertType !== "loading") {
+    setTimeout(() => setOpenAlert(false), 3000);
+  }
 };

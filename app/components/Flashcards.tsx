@@ -33,7 +33,7 @@ export default function Flashcards({
                 {flashcard.front}
               </p>
             </div>
-            <div className="absolute flex items-center justify-center w-full h-full max-h-full p-2 overflow-y-auto font-medium text-center text-black break-words bg-indigo-600 rounded-lg shadow-md md:p-4 backface-hidden rotate-y-180">
+            <div className="absolute flex items-center justify-center w-full h-full max-h-full p-2 overflow-y-auto font-medium text-center text-white break-words bg-indigo-600 rounded-lg shadow-md md:p-4 backface-hidden rotate-y-180">
               <div className="w-full max-h-full p-1 overflow-y-auto">
                 {" "}
                 {flashcard.back}

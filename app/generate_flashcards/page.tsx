@@ -3,9 +3,9 @@ import { Flashcard } from "@/types";
 import { Dispatch, SetStateAction, useState } from "react";
 import Flashcards from "../components/Flashcards";
 import { useUser } from "@clerk/nextjs";
-import ErrorAlert from "../components/Error";
+import Alert from "../components/Alert";
 import { useRouter } from "next/navigation";
-import { showError } from "../utils";
+import { showAlert } from "../utils";
 
 function Modal({
   isModalOpen,
@@ -15,6 +15,9 @@ function Modal({
   numberOfFlashcards,
   setNumberOfFlashcards,
   setFlashcards,
+  setOpenAlert,
+  setAlertType,
+  setAlertMessage,
 }: {
   isModalOpen: boolean;
   setIsModalOpen: Dispatch<SetStateAction<boolean>>;
@@ -23,24 +26,40 @@ function Modal({
   numberOfFlashcards: number;
   setNumberOfFlashcards: Dispatch<SetStateAction<number>>;
   setFlashcards: Dispatch<SetStateAction<Flashcard[]>>;
+  setOpenAlert: Dispatch<SetStateAction<boolean>>;
+  setAlertMessage: Dispatch<SetStateAction<string>>;
+  setAlertType: Dispatch<SetStateAction<string>>;
 }) {
-  const [openError, setOpenError] = useState(false);
-  const [error, setError] = useState("");
-
   async function handleRequest() {
     if (!subject) {
-      showError("Please specify a Subject.", setError, setOpenError);
+      showAlert(
+        "Please specify a Subject.",
+        "error",
+        setAlertMessage,
+        setOpenAlert,
+        setAlertType,
+      );
       return;
     } else if (!numberOfFlashcards) {
-      showError(
+      showAlert(
         "Please specify a Number of Flashcards.",
-        setError,
-        setOpenError,
+        "error",
+        setAlertMessage,
+        setOpenAlert,
+        setAlertType,
       );
       return;
     }
 
     try {
+      showAlert(
+        "Saving flashcards...",
+        "loading",
+        setAlertMessage,
+        setOpenAlert,
+        setAlertType,
+      );
+
       const response = await fetch("/api/generate_flashcards", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -59,8 +78,23 @@ function Modal({
       }
 
       setIsModalOpen(false);
-    } catch (error) {
-      showError("Something went wrong. Try again!", setError, setOpenError);
+      showAlert(
+        "Flashcards generated successfully!",
+        "success",
+        setAlertMessage,
+        setOpenAlert,
+        setAlertType,
+      );
+
+      setIsModalOpen(false);
+    } catch (message) {
+      showAlert(
+        "Something went wrong. Try again!",
+        "error",
+        setAlertMessage,
+        setOpenAlert,
+        setAlertType,
+      );
     }
   }
 
@@ -72,7 +106,6 @@ function Modal({
     >
       <div className="w-full max-w-md bg-white rounded-lg shadow-xl">
         <div className="p-6">
-          <ErrorAlert error={error} openError={openError} />
           <h2 className="mb-4 text-2xl font-bold text-gray-800">
             Generate Flashcards
           </h2>
@@ -138,13 +171,20 @@ export default function GenerateFlashcards() {
   const [numberOfFlashcards, setNumberOfFlashcards] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
-  const [openError, setOpenError] = useState(false);
-  const [error, setError] = useState("");
+  const [openAlert, setOpenAlert] = useState(false);
+  const [alertMessage, setAlertMessage] = useState("");
+  const [alertType, setAlertType] = useState("");
   const router = useRouter();
 
   async function handleSaveFlashcards() {
     if (!user?.id) {
-      showError("It seems you don't have an ID", setError, setOpenError);
+      showAlert(
+        "It seems you are not logged in.",
+        "error",
+        setAlertMessage,
+        setOpenAlert,
+        setAlertType,
+      );
       return;
     }
 
@@ -158,17 +198,30 @@ export default function GenerateFlashcards() {
       if (!response.ok) {
         throw new Error();
       } else {
+        showAlert(
+          "Flashcards saved successfully!",
+          "success",
+          setAlertMessage,
+          setOpenAlert,
+          setAlertType,
+        );
         router.push("/home/");
       }
-    } catch (error) {
-      showError("Something went wrong. Try again!", setError, setOpenError);
+    } catch {
+      showAlert(
+        "Something went wrong. Try again!",
+        "error",
+        setAlertMessage,
+        setOpenAlert,
+        setAlertType,
+      );
     }
   }
 
   return (
-    <div className="min-h-screen px-4 py-8 bg-gradient-to-b from-indigo-100 to-indigo-200 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto">
-        <ErrorAlert error={error} openError={openError} />
+    <div className="px-4 py-8 border-4 border-white rounded-lg grow bg-gradient-to-b from-indigo-100 to-indigo-200 sm:px-6 lg:px-8">
+      <div className="mx-auto">
+        <Alert message={alertMessage} openAlert={openAlert} type={alertType} />
         {flashcards.length > 0 ? (
           <div className="space-y-8">
             <h1 className="text-3xl font-bold text-center text-indigo-800">
@@ -212,6 +265,9 @@ export default function GenerateFlashcards() {
         numberOfFlashcards={numberOfFlashcards}
         setNumberOfFlashcards={setNumberOfFlashcards}
         setFlashcards={setFlashcards}
+        setOpenAlert={setOpenAlert}
+        setAlertMessage={setAlertMessage}
+        setAlertType={setAlertType}
       />
     </div>
   );

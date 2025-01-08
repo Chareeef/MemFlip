@@ -5,9 +5,9 @@ import { useState } from "react";
 import { Flashcard } from "@/types";
 import Flashcards from "../components/Flashcards";
 import { useUser } from "@clerk/nextjs";
-import ErrorAlert from "../components/Error";
+import Alert from "../components/Alert";
 import { useEffect } from "react";
-import { showError } from "../utils";
+import { showAlert } from "../utils";
 import { BiLoader } from "react-icons/bi";
 
 function FlashcardsModal({
@@ -88,8 +88,9 @@ export default function Home() {
   const [openedSubject, setOpenedSubject] = useState<string>("");
   const [isOpenFlashcardsModal, setIsOpenFlashcardsModal] =
     useState<boolean>(false);
-  const [openError, setOpenError] = useState<boolean>(false);
-  const [error, setError] = useState<string>("");
+  const [openAlert, setOpenAlert] = useState<boolean>(false);
+  const [alert, setAlert] = useState<string>("");
+  const [alertType, setAlertType] = useState<string>("");
 
   useEffect(() => {
     if (!isLoaded || !user) {
@@ -111,7 +112,13 @@ export default function Home() {
         const data = await response.json();
         setFlashcardsSubjects(data.subjects);
       } catch (error) {
-        showError("Something went wrong. Try again!", setError, setOpenError);
+        showAlert(
+          "Something went wrong. Try again!",
+          "error",
+          setAlert,
+          setOpenAlert,
+          setAlertType,
+        );
       }
     };
 
@@ -143,7 +150,13 @@ export default function Home() {
       setOpenedFlashcards(data.flashcardsSet);
       setIsOpenFlashcardsModal(true);
     } catch (error) {
-      showError("Something went wrong. Try again!", setError, setOpenError);
+      showAlert(
+        "Something went wrong. Try again!",
+        "error",
+        setAlert,
+        setOpenAlert,
+        setAlertType,
+      );
     }
   }
 
@@ -205,7 +218,7 @@ export default function Home() {
         isOpen={isOpenFlashcardsModal}
         onClose={() => setIsOpenFlashcardsModal(false)}
       />
-      <ErrorAlert error={error} openError={openError} />
+      <Alert message={alert} openAlert={openAlert} type={alertType} />
     </div>
   );
 }
