@@ -50,7 +50,7 @@ export default function LandingPage() {
             />
           </div>
           <h1
-            className="p-2 text-3xl font-bold text-white sm:text-4xl lg:text-5xl bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600"
+            className="p-2 text-3xl font-bold text-white rounded sm:text-4xl lg:text-5xl bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600"
             data-aos="fade-up"
           >
             MemFlip
@@ -70,18 +70,16 @@ export default function LandingPage() {
               data-aos="fade-up"
             >
               <div
-                className={`relative p-6 sm:p-8 rounded-2xl bg-gradient-to-r from-indigo-100/80 to-violet-100/80 backdrop-blur-sm
-                  border border-indigo-200 shadow-lg transform transition duration-500 group-hover:scale-105
-                  ${index % 2 === 0 ? "lg:order-1" : "lg:order-2"}`}
+                className={`relative p-4 md:p-6 sm:p-8 rounded-2xl bg-gradient-to-r from-indigo-100/80 to-violet-100/80 backdrop-blur-sm border border-indigo-200 shadow-lg transform transition duration-500 group-hover:scale-105 ${index % 2 === 0 ? "lg:order-1" : "lg:order-2"}`}
                 data-aos={index % 2 === 0 ? "fade-right" : "fade-left"}
               >
-                <p className="text-lg font-medium text-center text-gray-800 sm:text-xl">
+                <p className="text-base font-medium text-center text-gray-800 md:text-xl">
                   {feature.text}
                 </p>
               </div>
 
               <div
-                className={`relative rounded-2xl overflow-hidden shadow-xl transform transition duration-500 group-hover:scale-105
+                className={`relative rounded-lg overflow-hidden shadow-xl transform transition duration-500 group-hover:scale-105
                   ${index % 2 === 0 ? "lg:order-2" : "lg:order-1"}`}
                 data-aos={index % 2 === 0 ? "fade-left" : "fade-right"}
               >
@@ -89,11 +87,9 @@ export default function LandingPage() {
                   src={feature.imageURL}
                   alt={feature.text}
                   width={960}
-                  height={571}
-                  className="w-full h-auto"
-                  quality={90}
+                  height={620}
+                  className="object-cover"
                 />
-                <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-indigo-500/10 to-violet-500/10" />
               </div>
             </div>
           ))}
