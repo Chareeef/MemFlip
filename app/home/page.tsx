@@ -148,8 +148,8 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen px-4 py-8 bg-gradient-to-b from-indigo-100 to-indigo-200 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl">
+    <div className="px-4 py-8 border-4 border-white rounded-lg grow bg-gradient-to-b from-indigo-100 to-indigo-200 sm:px-6 lg:px-8">
+      <div className="mx-auto">
         {/* Profile info */}
         <div className="mb-8 overflow-hidden bg-white rounded-lg shadow-lg">
           <div className="flex flex-col items-center justify-center p-6 sm:p-8 sm:flex-row">
@@ -185,10 +185,16 @@ export default function Home() {
             <h3 className="mb-4 text-xl font-semibold text-gray-800">
               Your Flashcard Sets
             </h3>
-            <FlashcardsSubjects
-              subjects={flashcardsSubjects}
-              onSubjectClick={openFlashcardsSet}
-            />
+            {flashcardsSubjects.length === 0 ? (
+              <div className="flex items-center justify-center w-full h-24">
+                <BiLoader className="w-6 h-6 animate-spin" />
+              </div>
+            ) : (
+              <FlashcardsSubjects
+                subjects={flashcardsSubjects}
+                onSubjectClick={openFlashcardsSet}
+              />
+            )}
           </div>
         </div>
       </div>

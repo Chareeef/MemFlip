@@ -35,7 +35,7 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-tertiary to-tertiary/50">
+    <div className="grow bg-gradient-to-b from-tertiary to-tertiary/50">
       {/* Hero Section */}
       <div className="container px-4 py-8 mx-auto sm:py-12">
         <div className="flex flex-col items-center overflow-hidden text-center space-y-6">
