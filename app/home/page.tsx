@@ -8,6 +8,7 @@ import { useUser } from "@clerk/nextjs";
 import ErrorAlert from "../components/Error";
 import { useEffect } from "react";
 import { showError } from "../utils";
+import { BiLoader } from "react-icons/bi";
 
 function FlashcardsModal({
   subject,
@@ -120,7 +121,7 @@ export default function Home() {
   if (!isLoaded || !user) {
     return (
       <div className="flex flex-col items-center justify-center grow">
-        <p className="font-bold text-white">Wait a moment...</p>
+        <BiLoader className="text-2xl text-indigo-800 animate-spin" />
       </div>
     );
   }
