@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
           content: `Generate a list of flashcards about ${subject}`, // User request to generate flashcards
         },
       ],
-      model: "llama-3.1-70b-versatile", // Model used for generating the flashcards
+      model: "llama-3.3-70b-versatile", // Model used for generating the flashcards
       temperature: 0, // Temperature set to 0 for deterministic results
       stream: false, // No streaming; the response is returned as a whole
       response_format: { type: "json_object" }, // The expected response format is a JSON object
