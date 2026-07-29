@@ -89,7 +89,8 @@ export default function GenerateFlashcards() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
   const [subject, setSubject] = useState("");
-  const [numberOfFlashcards, setNumberOfFlashcards] = useState(8);
+  const [numberOfFlashcards, setNumberOfFlashcards] = useState<number | "">(8);
+  const [cardCountTouched, setCardCountTouched] = useState(false);
   const [flashcards, setFlashcards] = useState<DraftFlashcard[]>([]);
   const [requestState, setRequestState] = useState<RequestState>("idle");
   const [requestError, setRequestError] = useState("");
@@ -103,6 +104,13 @@ export default function GenerateFlashcards() {
   const [openAlert, setOpenAlert] = useState(false);
   const [alertMessage, setAlertMessage] = useState("");
   const [alertType, setAlertType] = useState<AlertType>("");
+  const cardCount =
+    numberOfFlashcards === "" ? 0 : numberOfFlashcards;
+  const cardCountInvalid =
+    numberOfFlashcards === "" ||
+    !Number.isInteger(cardCount) ||
+    cardCount < 3 ||
+    cardCount > 20;
 
   const performGeneration = async () => {
     const cleanSubject = subject.trim();
@@ -111,8 +119,9 @@ export default function GenerateFlashcards() {
       document.getElementById("subject")?.focus();
       return;
     }
-    if (numberOfFlashcards < 3 || numberOfFlashcards > 30) {
-      setRequestError("Choose between 3 and 30 flashcards.");
+    setCardCountTouched(true);
+    if (cardCountInvalid) {
+      setRequestError("");
       document.getElementById("numberOfFlashcards")?.focus();
       return;
     }
@@ -130,7 +139,7 @@ export default function GenerateFlashcards() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           subject: cleanSubject,
-          numberOfFlashcards,
+          numberOfFlashcards: cardCount,
         }),
       });
 
@@ -399,15 +408,33 @@ export default function GenerateFlashcards() {
                     id="numberOfFlashcards"
                     type="number"
                     min={3}
-                    max={30}
+                    max={20}
                     value={numberOfFlashcards}
-                    onChange={(event) =>
-                      setNumberOfFlashcards(Number(event.target.value))
-                    }
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setNumberOfFlashcards(value === "" ? "" : Number(value));
+                      setCardCountTouched(true);
+                      setRequestError("");
+                    }}
+                    onBlur={() => setCardCountTouched(true)}
                     className="input-control"
                     disabled={requestState === "loading"}
+                    aria-invalid={cardCountTouched && cardCountInvalid}
+                    aria-describedby={
+                      cardCountTouched && cardCountInvalid
+                        ? "card-count-error"
+                        : "card-count-hint"
+                    }
                   />
-                  <p className="field-hint">Between 3 and 30 cards.</p>
+                  {cardCountTouched && cardCountInvalid ? (
+                    <p id="card-count-error" className="field-error">
+                      Enter a whole number between 3 and 20.
+                    </p>
+                  ) : (
+                    <p id="card-count-hint" className="field-hint">
+                      Between 3 and 20 cards.
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -476,13 +503,13 @@ export default function GenerateFlashcards() {
                     Drafting your flashcards
                   </h2>
                   <p className="text-sm text-ink-500">
-                    MemFlip is creating {numberOfFlashcards} cards about{" "}
+                    MemFlip is creating {cardCount} cards about{" "}
                     <span className="font-semibold">{subject.trim()}</span>.
                     This can take a moment.
                   </p>
                 </div>
               </div>
-              <GenerationSkeleton count={numberOfFlashcards} />
+              <GenerationSkeleton count={cardCount} />
               <p className="sr-only" role="status" aria-live="polite">
                 Generating flashcards. Please wait.
               </p>

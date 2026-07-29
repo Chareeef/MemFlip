@@ -3,26 +3,28 @@ import { auth } from "@clerk/nextjs/server";
 import { getFlashcardsSet } from "../firestoreUtils";
 
 /**
- * Handles POST requests to retrieve a specific flashcards set by subject for a user.
+ * Handles POST requests to retrieve a specific flashcards set by ID for a user.
  *
  * This route expects a JSON payload containing:
  * - `userId`: The userId of the user.
- * - `subject`: The subject (ID) of the flashcards set.
+ * - `deckId`: The Firestore document ID of the flashcards set.
  *
  * The function fetches the specified flashcards set from Firestore for the given user.
  * If the flashcards set is found, it is returned in the response.
- * If the userId or subject is missing, or if the flashcards set is not found or an error occurs,
+ * If the userId or deckId is missing, or if the flashcards set is not found or an error occurs,
  * an appropriate error response is returned.
  */
 export async function POST(req: NextRequest) {
-  const { userId, subject } = await req.json();
+  const { userId, deckId, subject, markOpened = true } = await req.json();
+  const requestedDeckId = deckId || subject;
   const { userId: authenticatedUserId } = auth();
 
-  // Validate the userId and subject parameters
-  if (!userId || !subject) {
+  // Validate the user and deck identifiers. `subject` remains accepted for
+  // clients using the previous request shape.
+  if (!userId || !requestedDeckId) {
     return new NextResponse(
       JSON.stringify({
-        error: "Please specify both userId and subject",
+        error: "Please specify both userId and deckId",
       }),
       { status: 400 },
     );
@@ -44,7 +46,11 @@ export async function POST(req: NextRequest) {
 
   try {
     // Retrieve the specific flashcards set from Firestore
-    const flashcardsSet = await getFlashcardsSet(userId, subject);
+    const flashcardsSet = await getFlashcardsSet(
+      userId,
+      requestedDeckId,
+      markOpened !== false,
+    );
     if (flashcardsSet) {
       return new NextResponse(JSON.stringify({ flashcardsSet }), {
         status: 200,

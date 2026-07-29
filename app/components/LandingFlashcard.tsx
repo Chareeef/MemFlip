@@ -14,8 +14,8 @@ export default function LandingFlashcard() {
       aria-pressed={flipped}
       aria-label={
         flipped
-          ? "Answer: It produces ATP, the cell’s usable energy, through cellular respiration. Show question."
-          : "Question: What is the primary function of the mitochondrion? Show answer."
+          ? "Answer: Fyodor Dostoevsky. Show question."
+          : "Question: Who wrote “Beauty will save the world”? Show answer."
       }
     >
       <span
@@ -36,7 +36,7 @@ export default function LandingFlashcard() {
             />
           </span>
           <span className="m-auto max-w-[24ch] text-center text-xl font-bold leading-9 tracking-[-0.025em] text-ink-900 sm:text-2xl">
-            What is the primary function of the mitochondrion?
+            Who wrote &ldquo;Beauty will save the world&rdquo;?
           </span>
           <span className="text-center text-xs font-semibold text-ink-500">
             Tap or press Enter to reveal
@@ -57,8 +57,7 @@ export default function LandingFlashcard() {
             />
           </span>
           <span className="m-auto max-w-[27ch] text-center text-lg font-semibold leading-8 sm:text-xl">
-            It produces ATP, the cell&apos;s usable energy, through cellular
-            respiration.
+            Fyodor Dostoevsky
           </span>
           <span className="text-center text-xs font-semibold text-brand-100">
             Tap to return to the question

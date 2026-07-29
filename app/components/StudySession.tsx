@@ -1,17 +1,19 @@
 "use client";
 
 import { Flashcard } from "@/types";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FiArrowLeft,
   FiArrowRight,
   FiCheck,
+  FiEdit2,
+  FiMoreVertical,
   FiRotateCcw,
   FiRotateCw,
+  FiTrash2,
 } from "react-icons/fi";
 import Button from "./ui/Button";
 import Flashcards from "./Flashcards";
-import Modal from "./ui/Modal";
 
 type Direction = "next" | "previous";
 type Rating = "again" | "hard" | "good" | "easy";
@@ -27,13 +29,15 @@ const ratingLabels: Record<Rating, string> = {
 export default function StudySession({
   subject,
   flashcards,
-  open,
   onClose,
+  onEdit,
+  onDelete,
 }: {
   subject: string;
   flashcards: Flashcard[];
-  open: boolean;
   onClose: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
 }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
@@ -43,6 +47,8 @@ export default function StudySession({
   >({});
   const [complete, setComplete] = useState(false);
   const [mode, setMode] = useState<SessionMode>("study");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const reset = useCallback(() => {
     setCurrentIndex(0);
@@ -54,8 +60,31 @@ export default function StudySession({
   }, []);
 
   useEffect(() => {
-    if (open) reset();
-  }, [open, reset, subject]);
+    reset();
+  }, [reset, subject]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const closeMenu = (event: MouseEvent) => {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(event.target as Node)
+      ) {
+        setMenuOpen(false);
+      }
+    };
+    const closeMenuWithEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+
+    document.addEventListener("mousedown", closeMenu);
+    document.addEventListener("keydown", closeMenuWithEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeMenu);
+      document.removeEventListener("keydown", closeMenuWithEscape);
+    };
+  }, [menuOpen]);
 
   const goTo = useCallback(
     (nextIndex: number) => {
@@ -68,7 +97,7 @@ export default function StudySession({
   );
 
   useEffect(() => {
-    if (!open || complete || mode !== "study") return;
+    if (complete || mode !== "study") return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement;
@@ -94,7 +123,7 @@ export default function StudySession({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [complete, currentIndex, goTo, mode, open]);
+  }, [complete, currentIndex, goTo, mode]);
 
   const ratingSummary = useMemo(
     () =>
@@ -135,26 +164,83 @@ export default function StudySession({
     ? ((complete ? flashcards.length : ratedCount) / flashcards.length) * 100
     : 0;
 
-  // Modal children are evaluated even when the modal itself is closed. Avoid
-  // reading a card before a deck has been selected and loaded.
-  if (!open || !currentCard) return null;
+  if (!currentCard) return null;
 
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title={subject}
-      description={
-        complete
-          ? "Study session complete"
-          : mode === "browse"
-            ? `${flashcards.length} ${
-                flashcards.length === 1 ? "card" : "cards"
-              } in this deck`
-            : `Card ${currentIndex + 1} of ${flashcards.length}`
-      }
-      size="lg"
+    <section
+      className="flex min-h-[calc(100svh-8rem)] w-full flex-col overflow-hidden bg-surface"
+      aria-labelledby="study-session-title"
     >
+      <div className="flex items-start gap-3 border-b border-[var(--border)] px-4 py-4 sm:px-6 lg:px-8">
+        <button
+          type="button"
+          onClick={onClose}
+          className="icon-button -ml-1"
+          aria-label="Back to library"
+        >
+          <FiArrowLeft className="size-5" aria-hidden="true" />
+        </button>
+        <div className="min-w-0 grow">
+          <h1
+            id="study-session-title"
+            className="truncate text-xl font-bold tracking-[-0.025em] text-ink-900 sm:text-2xl"
+          >
+            {subject}
+          </h1>
+          <p className="mt-0.5 text-sm leading-6 text-ink-500">
+            {complete
+              ? "Study session complete"
+              : mode === "browse"
+                ? `${flashcards.length} ${
+                    flashcards.length === 1 ? "card" : "cards"
+                  } in this deck`
+                : `Card ${currentIndex + 1} of ${flashcards.length}`}
+          </p>
+        </div>
+        <div ref={menuRef} className="relative ml-auto shrink-0">
+          <button
+            type="button"
+            onClick={() => setMenuOpen((open) => !open)}
+            className="icon-button"
+            aria-label={`More options for ${subject}`}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+          >
+            <FiMoreVertical className="size-5" aria-hidden="true" />
+          </button>
+          {menuOpen && (
+            <div
+              role="menu"
+              className="absolute right-0 top-12 z-40 w-44 overflow-hidden rounded-control border border-[var(--border)] bg-white p-1.5 shadow-floating"
+            >
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onEdit();
+                }}
+                className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-semibold text-ink-700 hover:bg-surface-subtle hover:text-ink-900"
+              >
+                <FiEdit2 className="size-4" aria-hidden="true" />
+                Edit
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onDelete();
+                }}
+                className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-semibold text-red-700 hover:bg-red-50"
+              >
+                <FiTrash2 className="size-4" aria-hidden="true" />
+                Delete
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
       {!complete && (
         <div
           className="flex items-center gap-1 border-b border-[var(--border)] bg-white px-4 py-2 sm:px-6"
@@ -208,12 +294,12 @@ export default function StudySession({
         <div
           id="browse-panel"
           role="tabpanel"
-          className="min-h-0 overflow-y-auto p-4 sm:p-6"
+          className="min-h-0 grow overflow-y-auto p-4 sm:p-6"
         >
           <Flashcards flashcards={flashcards} />
         </div>
       ) : complete ? (
-        <div className="flex min-h-[28rem] flex-col items-center justify-center overflow-y-auto px-5 py-12 text-center sm:px-8">
+        <div className="flex min-h-[28rem] grow flex-col items-center justify-center overflow-y-auto px-5 py-12 text-center sm:px-8">
           <div className="grid size-14 place-items-center rounded-full bg-emerald-50 text-emerald-700">
             <FiCheck className="size-7" aria-hidden="true" />
           </div>
@@ -256,7 +342,7 @@ export default function StudySession({
         <div
           id="study-panel"
           role="tabpanel"
-          className="min-h-0 overflow-y-auto px-4 py-5 sm:px-8 sm:py-7"
+          className="min-h-0 grow overflow-y-auto px-4 py-5 sm:px-8 sm:py-7"
         >
           <div
             key={`${currentIndex}-${direction}`}
@@ -399,6 +485,6 @@ export default function StudySession({
               flipped ? "Answer shown." : "Question shown."
             }`}
       </p>
-    </Modal>
+    </section>
   );
 }

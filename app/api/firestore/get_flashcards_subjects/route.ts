@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { getFlashcardsSetsIds } from "../firestoreUtils";
+import { getFlashcardsDecks } from "../firestoreUtils";
 
 /**
- * Handles POST requests to retrieve all flashcards sets' IDs (subjects) for a user.
+ * Handles POST requests to retrieve deck summaries for a user.
  *
  * This route expects a JSON payload containing:
  * - `userId`: The userId of the user.
  *
- * The function fetches all the document IDs (which correspond to the subjects)
- * in the `flashcards` collection for the specified user in Firestore.
+ * The function fetches each subject and its creation/opened timestamps from the
+ * user's `flashcards` collection.
  * If the userId is missing or an error occurs during the fetch operation,
  * an appropriate error response is returned.
  */
@@ -40,9 +40,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    // Retrieve the flashcards sets' IDs from Firestore
-    const subjects = await getFlashcardsSetsIds(userId);
-    return new NextResponse(JSON.stringify({ subjects }), { status: 200 });
+    // Retrieve deck names and the metadata used by the library sort controls.
+    const decks = await getFlashcardsDecks(userId);
+    return NextResponse.json({ decks }, { status: 200 });
   } catch (error) {
     // Handle any errors that occur during the fetch operation
     return new NextResponse(

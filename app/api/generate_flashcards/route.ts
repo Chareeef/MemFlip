@@ -102,11 +102,11 @@ export async function POST(req: NextRequest) {
   if (
     !Number.isInteger(numberOfFlashcards) ||
     numberOfFlashcards < 3 ||
-    numberOfFlashcards > 30
+    numberOfFlashcards > 20
   ) {
     return new NextResponse(
       JSON.stringify({
-        error: "numberOfFlashcards must be an integer between 3 and 30",
+        error: "numberOfFlashcards must be an integer between 3 and 20",
       }),
       { status: 400 },
     );

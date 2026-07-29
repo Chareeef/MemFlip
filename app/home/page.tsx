@@ -1,26 +1,30 @@
 "use client";
 
 import { useUser } from "@clerk/nextjs";
-import { Flashcard } from "@/types";
+import { DeckSummary } from "@/types";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   FiArrowRight,
   FiBookOpen,
+  FiCheckSquare,
+  FiEdit2,
   FiLayers,
+  FiMoreVertical,
   FiPlus,
   FiRefreshCw,
   FiSearch,
+  FiTrash2,
+  FiX,
 } from "react-icons/fi";
-import Alert, { AlertType } from "../components/Alert";
-import StudySession from "../components/StudySession";
 import Button from "../components/ui/Button";
 import EmptyState from "../components/ui/EmptyState";
-import { showAlert } from "../utils";
+import Modal from "../components/ui/Modal";
+import { encodeDeckRouteId } from "../deckRoutes";
 
 type LoadState = "loading" | "ready" | "error";
-type SortOrder = "az" | "za";
+type SortOrder = "opened" | "created" | "az" | "za";
 
 function LibrarySkeleton() {
   return (
@@ -41,18 +45,20 @@ function LibrarySkeleton() {
 
 export default function Home() {
   const { user, isLoaded } = useUser();
-  const [subjects, setSubjects] = useState<string[]>([]);
+  const [decks, setDecks] = useState<DeckSummary[]>([]);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [reloadKey, setReloadKey] = useState(0);
   const [search, setSearch] = useState("");
-  const [sortOrder, setSortOrder] = useState<SortOrder>("az");
-  const [openedFlashcards, setOpenedFlashcards] = useState<Flashcard[]>([]);
-  const [openedSubject, setOpenedSubject] = useState("");
-  const [studyOpen, setStudyOpen] = useState(false);
-  const [openingSubject, setOpeningSubject] = useState<string | null>(null);
-  const [openAlert, setOpenAlert] = useState(false);
-  const [alert, setAlert] = useState("");
-  const [alertType, setAlertType] = useState<AlertType>("");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("opened");
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedDeckIds, setSelectedDeckIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [decksToDelete, setDecksToDelete] = useState<DeckSummary[]>([]);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const openMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!isLoaded || !user) return;
@@ -70,8 +76,8 @@ export default function Home() {
 
         if (!response.ok) throw new Error("Unable to load decks");
 
-        const data: { subjects?: string[] } = await response.json();
-        setSubjects(Array.isArray(data.subjects) ? data.subjects : []);
+        const data: { decks?: DeckSummary[] } = await response.json();
+        setDecks(Array.isArray(data.decks) ? data.decks : []);
         setLoadState("ready");
       } catch (error) {
         if ((error as Error).name === "AbortError") return;
@@ -83,55 +89,110 @@ export default function Home() {
     return () => controller.abort();
   }, [isLoaded, reloadKey, user]);
 
-  const filteredSubjects = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase();
-    return subjects
-      .filter((subject) => subject.toLocaleLowerCase().includes(query))
-      .sort((first, second) =>
-        sortOrder === "az"
-          ? first.localeCompare(second)
-          : second.localeCompare(first),
-      );
-  }, [search, sortOrder, subjects]);
+  useEffect(() => {
+    if (!openMenuId) return;
 
-  const openFlashcardsSet = async (subject: string) => {
-    if (!user || openingSubject) return;
-    setOpeningSubject(subject);
+    const closeMenu = (event: MouseEvent) => {
+      if (
+        openMenuRef.current &&
+        !openMenuRef.current.contains(event.target as Node)
+      ) {
+        setOpenMenuId(null);
+      }
+    };
+    const closeMenuWithEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpenMenuId(null);
+    };
+
+    document.addEventListener("mousedown", closeMenu);
+    document.addEventListener("keydown", closeMenuWithEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeMenu);
+      document.removeEventListener("keydown", closeMenuWithEscape);
+    };
+  }, [openMenuId]);
+
+  const filteredDecks = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase();
+    const getTimestamp = (deck: DeckSummary) => {
+      if (sortOrder === "opened") {
+        return deck.lastOpenedAt ?? Number.NEGATIVE_INFINITY;
+      }
+      return deck.createdAt ?? Number.NEGATIVE_INFINITY;
+    };
+
+    return decks
+      .filter((deck) =>
+        deck.subject.toLocaleLowerCase().includes(query),
+      )
+      .sort((first, second) => {
+        if (sortOrder === "az") {
+          return first.subject.localeCompare(second.subject);
+        }
+        if (sortOrder === "za") {
+          return second.subject.localeCompare(first.subject);
+        }
+
+        const dateDifference = getTimestamp(second) - getTimestamp(first);
+        return dateDifference || first.subject.localeCompare(second.subject);
+      });
+  }, [decks, search, sortOrder]);
+
+  const toggleDeckSelection = (deckId: string) => {
+    setSelectedDeckIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+      if (nextIds.has(deckId)) {
+        nextIds.delete(deckId);
+      } else {
+        nextIds.add(deckId);
+      }
+      return nextIds;
+    });
+  };
+
+  const stopSelecting = () => {
+    setSelectionMode(false);
+    setSelectedDeckIds(new Set());
+  };
+
+  const requestDeckDeletion = (decksForDeletion: DeckSummary[]) => {
+    setOpenMenuId(null);
+    setDeleteError("");
+    setDecksToDelete(decksForDeletion);
+  };
+
+  const deleteSelectedDecks = async () => {
+    if (!user || decksToDelete.length === 0) return;
+    setDeleting(true);
+    setDeleteError("");
 
     try {
-      const response = await fetch("/api/firestore/get_flashcards_set", {
+      const deckIds = decksToDelete.map((deck) => deck.id);
+      const response = await fetch("/api/firestore/delete_flashcards_sets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user.id, subject }),
+        body: JSON.stringify({ userId: user.id, deckIds }),
       });
-
-      if (!response.ok) throw new Error("Unable to load deck");
-
-      const data: { flashcardsSet?: Flashcard[] } = await response.json();
-      if (!Array.isArray(data.flashcardsSet) || data.flashcardsSet.length === 0) {
-        showAlert(
-          "This deck does not contain any cards yet.",
-          "info",
-          setAlert,
-          setOpenAlert,
-          setAlertType,
-        );
-        return;
+      const data: { error?: string } = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "The decks could not be deleted.");
       }
 
-      setOpenedSubject(subject);
-      setOpenedFlashcards(data.flashcardsSet);
-      setStudyOpen(true);
-    } catch {
-      showAlert(
-        "We couldn’t open that deck. Check your connection and try again.",
-        "error",
-        setAlert,
-        setOpenAlert,
-        setAlertType,
+      const deletedIds = new Set(deckIds);
+      setDecks((currentDecks) =>
+        currentDecks.filter((deck) => !deletedIds.has(deck.id)),
+      );
+      setDecksToDelete([]);
+      setSelectedDeckIds(new Set());
+      setSelectionMode(false);
+    } catch (error) {
+      setDeleteError(
+        error instanceof Error
+          ? error.message
+          : "The decks could not be deleted.",
       );
     } finally {
-      setOpeningSubject(null);
+      setDeleting(false);
     }
   };
 
@@ -168,6 +229,8 @@ export default function Home() {
   }
 
   const firstName = user.firstName || user.fullName || "there";
+  const allDecksSelected =
+    decks.length > 0 && decks.every((deck) => selectedDeckIds.has(deck.id));
 
   return (
     <>
@@ -213,15 +276,15 @@ export default function Home() {
               </h2>
               <p className="mt-1 text-sm text-ink-500">
                 {loadState === "ready"
-                  ? `${subjects.length} ${
-                      subjects.length === 1 ? "deck" : "decks"
+                  ? `${decks.length} ${
+                      decks.length === 1 ? "deck" : "decks"
                     } ready to study`
                   : "Your study collection"}
               </p>
             </div>
 
-            {subjects.length > 0 && loadState === "ready" && (
-              <div className="flex flex-col gap-3 sm:flex-row">
+            {decks.length > 0 && loadState === "ready" && (
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
                 <label className="relative block min-w-0 sm:w-72">
                   <span className="sr-only">Search decks</span>
                   <FiSearch
@@ -245,15 +308,77 @@ export default function Home() {
                     }
                     className="input-control sm:w-40"
                   >
+                    <option value="opened">Last opened</option>
+                    <option value="created">Date created</option>
                     <option value="az">Name A–Z</option>
                     <option value="za">Name Z–A</option>
                   </select>
                 </label>
+                <Button
+                  size="sm"
+                  variant={selectionMode ? "secondary" : "quiet"}
+                  onClick={() => {
+                    if (selectionMode) {
+                      stopSelecting();
+                    } else {
+                      setOpenMenuId(null);
+                      setSelectionMode(true);
+                    }
+                  }}
+                  leadingIcon={
+                    selectionMode ? (
+                      <FiX className="size-4" />
+                    ) : (
+                      <FiCheckSquare className="size-4" />
+                    )
+                  }
+                >
+                  {selectionMode ? "Cancel" : "Select"}
+                </Button>
               </div>
             )}
           </div>
 
           <div className="p-4 sm:p-6">
+            {selectionMode && loadState === "ready" && decks.length > 0 && (
+              <div className="mb-5 flex flex-col gap-3 rounded-control border border-brand-200 bg-brand-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm font-semibold text-brand-900">
+                  {selectedDeckIds.size}{" "}
+                  {selectedDeckIds.size === 1 ? "deck" : "decks"} selected
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="quiet"
+                    onClick={() =>
+                      setSelectedDeckIds(
+                        allDecksSelected
+                          ? new Set()
+                          : new Set(decks.map((deck) => deck.id)),
+                      )
+                    }
+                  >
+                    {allDecksSelected ? "Clear" : "Select all"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    disabled={selectedDeckIds.size === 0}
+                    onClick={() =>
+                      requestDeckDeletion(
+                        decks.filter((deck) =>
+                          selectedDeckIds.has(deck.id),
+                        ),
+                      )
+                    }
+                    leadingIcon={<FiTrash2 className="size-4" />}
+                  >
+                    Delete selected
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {loadState === "loading" && <LibrarySkeleton />}
 
             {loadState === "error" && (
@@ -273,7 +398,7 @@ export default function Home() {
               />
             )}
 
-            {loadState === "ready" && subjects.length === 0 && (
+            {loadState === "ready" && decks.length === 0 && (
               <EmptyState
                 icon={<FiLayers className="size-6" />}
                 title="Create your first deck"
@@ -291,8 +416,8 @@ export default function Home() {
             )}
 
             {loadState === "ready" &&
-              subjects.length > 0 &&
-              filteredSubjects.length === 0 && (
+              decks.length > 0 &&
+              filteredDecks.length === 0 && (
                 <EmptyState
                   compact
                   icon={<FiSearch className="size-6" />}
@@ -306,51 +431,148 @@ export default function Home() {
                 />
               )}
 
-            {loadState === "ready" && filteredSubjects.length > 0 && (
+            {loadState === "ready" && filteredDecks.length > 0 && (
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {filteredSubjects.map((subject) => {
-                  const loading = openingSubject === subject;
+                {filteredDecks.map((deck) => {
+                  const selected = selectedDeckIds.has(deck.id);
+                  const menuOpen = openMenuId === deck.id;
+
                   return (
-                    <button
-                      key={subject}
-                      type="button"
-                      onClick={() => openFlashcardsSet(subject)}
-                      disabled={openingSubject !== null}
-                      className="group relative flex min-h-40 flex-col rounded-card border border-[var(--border)] bg-surface-raised p-5 text-left shadow-soft transition-[border-color,box-shadow,transform,opacity] duration-150 ease-product hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-card active:translate-y-0 disabled:opacity-65"
-                      aria-label={`Study ${subject}`}
-                    >
-                      <span className="flex items-start justify-between gap-3">
-                        <span className="grid size-10 place-items-center rounded-control bg-brand-50 text-brand-700 transition-colors group-hover:bg-brand-100">
-                          <FiBookOpen className="size-5" aria-hidden="true" />
-                        </span>
-                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-ink-500">
-                          {loading ? (
-                            <>
-                              <FiRefreshCw
-                                className="size-3.5 animate-spin"
+                  <article
+                    key={deck.id}
+                    className={`group relative min-h-40 rounded-card border bg-surface-raised shadow-soft transition-[border-color,box-shadow,transform] duration-150 ease-product ${
+                      selected
+                        ? "border-brand-500 ring-2 ring-brand-100"
+                        : "border-[var(--border)] hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-card"
+                    } ${menuOpen ? "z-30" : ""}`}
+                  >
+                    {selectionMode ? (
+                      <button
+                        type="button"
+                        onClick={() => toggleDeckSelection(deck.id)}
+                        className="absolute inset-0 z-10 rounded-card"
+                        aria-pressed={selected}
+                        aria-label={`${selected ? "Deselect" : "Select"} ${
+                          deck.subject
+                        }`}
+                      />
+                    ) : (
+                      <Link
+                        href={`/decks/${encodeDeckRouteId(deck.id)}`}
+                        className="absolute inset-0 z-10 rounded-card"
+                        aria-label={`Study ${deck.subject}`}
+                      />
+                    )}
+
+                    <div className="pointer-events-none relative z-20 flex min-h-40 flex-col p-5">
+                      <div className="flex items-start justify-between gap-3">
+                        {selectionMode ? (
+                          <button
+                            type="button"
+                            onClick={() => toggleDeckSelection(deck.id)}
+                            className={`pointer-events-auto grid size-10 place-items-center rounded-control border ${
+                              selected
+                                ? "border-brand-600 bg-brand-600 text-white"
+                                : "border-[var(--border-strong)] bg-white text-transparent"
+                            }`}
+                            aria-label={`${selected ? "Deselect" : "Select"} ${
+                              deck.subject
+                            }`}
+                          >
+                            <FiCheckSquare
+                              className="size-5"
+                              aria-hidden="true"
+                            />
+                          </button>
+                        ) : (
+                          <span className="grid size-10 place-items-center rounded-control bg-brand-50 text-brand-700 transition-colors group-hover:bg-brand-100">
+                            <FiBookOpen
+                              className="size-5"
+                              aria-hidden="true"
+                            />
+                          </span>
+                        )}
+
+                        {!selectionMode && (
+                          <div
+                            ref={menuOpen ? openMenuRef : undefined}
+                            className="pointer-events-auto relative"
+                          >
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setOpenMenuId((currentId) =>
+                                  currentId === deck.id ? null : deck.id,
+                                )
+                              }
+                              className="icon-button !size-9 bg-white/80"
+                              aria-label={`More options for ${deck.subject}`}
+                              aria-haspopup="menu"
+                              aria-expanded={menuOpen}
+                            >
+                              <FiMoreVertical
+                                className="size-5"
                                 aria-hidden="true"
                               />
-                              Opening
-                            </>
-                          ) : (
-                            <>
-                              Study
-                              <FiArrowRight
-                                className="size-3.5 transition-transform group-hover:translate-x-0.5"
-                                aria-hidden="true"
-                              />
-                            </>
-                          )}
-                        </span>
-                      </span>
+                            </button>
+                            {menuOpen && (
+                              <div
+                                role="menu"
+                                className="absolute right-0 top-11 z-40 w-44 overflow-hidden rounded-control border border-[var(--border)] bg-white p-1.5 shadow-floating"
+                              >
+                                <Link
+                                  href={`/decks/${encodeDeckRouteId(
+                                    deck.id,
+                                  )}/edit`}
+                                  role="menuitem"
+                                  className="flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm font-semibold text-ink-700 hover:bg-surface-subtle hover:text-ink-900"
+                                >
+                                  <FiEdit2
+                                    className="size-4"
+                                    aria-hidden="true"
+                                  />
+                                  Edit
+                                </Link>
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  onClick={() => requestDeckDeletion([deck])}
+                                  className="flex min-h-10 w-full items-center gap-2 rounded-lg px-3 text-left text-sm font-semibold text-red-700 hover:bg-red-50"
+                                >
+                                  <FiTrash2
+                                    className="size-4"
+                                    aria-hidden="true"
+                                  />
+                                  Delete
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                       <span className="mt-6 line-clamp-2 break-words text-lg font-bold leading-6 tracking-[-0.02em] text-ink-900">
-                        {subject}
+                        {deck.subject}
                       </span>
-                      <span className="mt-2 text-xs font-medium text-ink-500">
-                        Saved deck · Ready to review
+                      <span className="mt-2 flex items-center gap-1 text-xs font-medium text-ink-500">
+                        {selectionMode ? (
+                          selected ? (
+                            "Selected"
+                          ) : (
+                            "Select this deck"
+                          )
+                        ) : (
+                          <>
+                            Study
+                            <FiArrowRight
+                              className="size-3.5 transition-transform group-hover:translate-x-0.5"
+                              aria-hidden="true"
+                            />
+                          </>
+                        )}
                       </span>
-                    </button>
-                  );
+                    </div>
+                  </article>
+                );
                 })}
               </div>
             )}
@@ -358,13 +580,53 @@ export default function Home() {
         </section>
       </div>
 
-      <StudySession
-        subject={openedSubject}
-        flashcards={openedFlashcards}
-        open={studyOpen}
-        onClose={() => setStudyOpen(false)}
-      />
-      <Alert message={alert} openAlert={openAlert} type={alertType} />
+      <Modal
+        open={decksToDelete.length > 0}
+        onClose={() => {
+          if (!deleting) setDecksToDelete([]);
+        }}
+        title={
+          decksToDelete.length === 1
+            ? "Delete this deck?"
+            : `Delete ${decksToDelete.length} decks?`
+        }
+        description={
+          decksToDelete.length === 1
+            ? `“${decksToDelete[0]?.subject}” and all of its cards will be permanently deleted.`
+            : "The selected decks and all of their cards will be permanently deleted."
+        }
+        size="sm"
+      >
+        <div className="p-5 sm:p-6">
+          <p className="text-sm leading-6 text-ink-500">
+            This action cannot be undone.
+          </p>
+          {deleteError && (
+            <p className="mt-3 text-sm font-medium text-red-700" role="alert">
+              {deleteError}
+            </p>
+          )}
+          <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <Button
+              variant="quiet"
+              disabled={deleting}
+              onClick={() => setDecksToDelete([])}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              loading={deleting}
+              onClick={deleteSelectedDecks}
+              leadingIcon={<FiTrash2 className="size-4" />}
+            >
+              {decksToDelete.length === 1
+                ? "Delete deck"
+                : "Delete decks"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </>
   );
 }

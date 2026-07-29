@@ -21,7 +21,8 @@ export default function Header() {
   }, [pathname]);
 
   const linkClass = (href: string) => {
-    const active = pathname === href;
+    const active =
+      pathname === href || (href === "/home" && pathname.startsWith("/decks/"));
     return `inline-flex min-h-10 items-center gap-2 rounded-control px-3 text-sm font-semibold transition-colors duration-150 ${
       active
         ? "bg-brand-50 text-brand-800"
@@ -65,7 +66,13 @@ export default function Header() {
                     key={link.href}
                     href={link.href}
                     className={linkClass(link.href)}
-                    aria-current={pathname === link.href ? "page" : undefined}
+                    aria-current={
+                      pathname === link.href ||
+                      (link.href === "/home" &&
+                        pathname.startsWith("/decks/"))
+                        ? "page"
+                        : undefined
+                    }
                   >
                     <Icon className="size-4" aria-hidden="true" />
                     {link.label}
@@ -73,7 +80,7 @@ export default function Header() {
                 );
               })}
             </nav>
-            <div className="ml-2 border-l border-[var(--border)] pl-4">
+            <div className="ml-2 flex min-h-10 items-center border-l border-[var(--border)] pl-4">
               <UserButton afterSignOutUrl="/" />
             </div>
           </SignedIn>
@@ -131,7 +138,13 @@ export default function Header() {
                     key={link.href}
                     href={link.href}
                     className={linkClass(link.href)}
-                    aria-current={pathname === link.href ? "page" : undefined}
+                    aria-current={
+                      pathname === link.href ||
+                      (link.href === "/home" &&
+                        pathname.startsWith("/decks/"))
+                        ? "page"
+                        : undefined
+                    }
                   >
                     <Icon className="size-4" aria-hidden="true" />
                     {link.label}
