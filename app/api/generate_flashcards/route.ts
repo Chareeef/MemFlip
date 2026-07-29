@@ -1,6 +1,79 @@
 import Groq from "groq-sdk";
 import { NextRequest, NextResponse } from "next/server";
 
+type ProviderError = {
+  status?: number;
+  message?: string;
+  error?: {
+    code?: string;
+    message?: string;
+    error?: {
+      code?: string;
+      message?: string;
+    };
+  };
+};
+
+function providerFailureResponse(error: unknown) {
+  const providerError = error as ProviderError;
+  const providerDetails =
+    providerError.error?.error || providerError.error;
+  const providerMessage =
+    providerDetails?.message || providerError.message || "";
+  const providerCode = providerDetails?.code || "";
+
+  console.error("Groq flashcard generation failed", {
+    status: providerError.status,
+    code: providerCode || "unknown",
+    message: providerMessage,
+  });
+
+  if (
+    providerCode === "organization_restricted" ||
+    providerMessage.toLowerCase().includes("organization has been restricted")
+  ) {
+    return NextResponse.json(
+      {
+        code: "AI_PROVIDER_RESTRICTED",
+        error:
+          "AI generation is unavailable because the connected Groq organization is restricted. If you manage MemFlip, resolve the organization status in GroqCloud or replace GROQ_API_KEY.",
+      },
+      { status: 503 },
+    );
+  }
+
+  if (providerError.status === 401 || providerError.status === 403) {
+    return NextResponse.json(
+      {
+        code: "AI_PROVIDER_CONFIGURATION",
+        error:
+          "AI generation is not configured correctly. If you manage MemFlip, verify the Groq API key and model permissions.",
+      },
+      { status: 503 },
+    );
+  }
+
+  if (providerError.status === 429) {
+    return NextResponse.json(
+      {
+        code: "AI_PROVIDER_BUSY",
+        error:
+          "The AI service is receiving too many requests right now. Wait a moment, then try again.",
+      },
+      { status: 429 },
+    );
+  }
+
+  return NextResponse.json(
+    {
+      code: "AI_PROVIDER_ERROR",
+      error:
+        "The AI service couldn’t complete this request. Your topic is still here—please try again.",
+    },
+    { status: 502 },
+  );
+}
+
 // The POST function to handle incoming requests
 export async function POST(req: NextRequest) {
   const apiKey = process.env.GROQ_API_KEY;
@@ -99,9 +172,6 @@ export async function POST(req: NextRequest) {
     // Returning the generated flashcard set with a 200 OK status
     return new NextResponse(JSON.stringify(flashcardSet), { status: 200 });
   } catch (error) {
-    // Handling any errors that occur during the process
-    return new NextResponse(JSON.stringify({ error: error?.toString() }), {
-      status: 500, // Returning a 500 Internal Server Error status
-    });
+    return providerFailureResponse(error);
   }
 }

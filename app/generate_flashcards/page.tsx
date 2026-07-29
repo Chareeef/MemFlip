@@ -170,10 +170,12 @@ export default function GenerateFlashcards() {
         setOpenAlert,
         setAlertType,
       );
-    } catch {
+    } catch (error) {
       setRequestState("error");
       setRequestError(
-        "We couldn’t generate this set. Your topic is still here—check your connection and try again.",
+        error instanceof Error
+          ? error.message
+          : "We couldn’t generate this set. Your topic is still here—check your connection and try again.",
       );
     }
   };
@@ -353,65 +355,81 @@ export default function GenerateFlashcards() {
 
             <form
               onSubmit={handleGenerate}
-              className="grid gap-5 px-5 py-6 sm:px-6 lg:grid-cols-[1fr_12rem_auto] lg:items-end"
+              className="px-5 py-6 sm:px-6"
             >
-              <div>
-                <label htmlFor="subject" className="field-label">
-                  Topic or subject
-                </label>
-                <input
-                  id="subject"
-                  type="text"
-                  value={subject}
-                  onChange={(event) => {
-                    setSubject(event.target.value);
-                    setRequestError("");
-                    setSaveState("idle");
-                  }}
-                  className="input-control"
-                  placeholder="e.g. Photosynthesis for high school biology"
-                  aria-invalid={subjectInvalid}
-                  aria-describedby={
-                    subjectInvalid ? "subject-error" : "subject-hint"
-                  }
-                  disabled={requestState === "loading"}
-                  maxLength={160}
-                />
-                {subjectInvalid ? (
-                  <p id="subject-error" className="field-error">
-                    Enter a topic before continuing.
-                  </p>
-                ) : (
-                  <p id="subject-hint" className="field-hint">
-                    Include the level or context when it matters.
-                  </p>
-                )}
+              <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_12rem]">
+                <div>
+                  <label htmlFor="subject" className="field-label">
+                    Topic or subject
+                  </label>
+                  <input
+                    id="subject"
+                    type="text"
+                    value={subject}
+                    onChange={(event) => {
+                      setSubject(event.target.value);
+                      setRequestError("");
+                      setSaveState("idle");
+                    }}
+                    className="input-control"
+                    placeholder="e.g. Photosynthesis for high school biology"
+                    aria-invalid={subjectInvalid}
+                    aria-describedby={
+                      subjectInvalid ? "subject-error" : "subject-hint"
+                    }
+                    disabled={requestState === "loading"}
+                    maxLength={160}
+                  />
+                  {subjectInvalid ? (
+                    <p id="subject-error" className="field-error">
+                      Enter a topic before continuing.
+                    </p>
+                  ) : (
+                    <p id="subject-hint" className="field-hint">
+                      Include the level or context when it matters.
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor="numberOfFlashcards" className="field-label">
+                    Number of cards
+                  </label>
+                  <input
+                    id="numberOfFlashcards"
+                    type="number"
+                    min={3}
+                    max={30}
+                    value={numberOfFlashcards}
+                    onChange={(event) =>
+                      setNumberOfFlashcards(Number(event.target.value))
+                    }
+                    className="input-control"
+                    disabled={requestState === "loading"}
+                  />
+                  <p className="field-hint">Between 3 and 30 cards.</p>
+                </div>
               </div>
 
-              <div>
-                <label htmlFor="numberOfFlashcards" className="field-label">
-                  Number of cards
-                </label>
-                <input
-                  id="numberOfFlashcards"
-                  type="number"
-                  min={3}
-                  max={30}
-                  value={numberOfFlashcards}
-                  onChange={(event) =>
-                    setNumberOfFlashcards(Number(event.target.value))
-                  }
-                  className="input-control"
-                  disabled={requestState === "loading"}
-                />
-                <p className="field-hint">Between 3 and 30 cards.</p>
-              </div>
-
-              <div className="grid gap-1 lg:mb-[1.45rem]">
+              <div className="mt-6 flex flex-col-reverse gap-3 border-t border-[var(--border)] pt-5 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  {flashcards.length === 0 &&
+                    requestState !== "loading" && (
+                      <Button
+                        type="button"
+                        variant="quiet"
+                        className="w-full sm:w-auto"
+                        onClick={addBlankCard}
+                        leadingIcon={<FiEdit3 className="size-4" />}
+                      >
+                        Start manually
+                      </Button>
+                    )}
+                </div>
                 <Button
                   type="submit"
                   size="lg"
-                  className="w-full lg:w-auto"
+                  className="w-full sm:w-auto"
                   loading={requestState === "loading"}
                   leadingIcon={<HiOutlineSparkles className="size-4" />}
                 >
@@ -421,15 +439,6 @@ export default function GenerateFlashcards() {
                       ? "New draft"
                       : "Generate cards"}
                 </Button>
-                {flashcards.length === 0 && requestState !== "loading" && (
-                  <button
-                    type="button"
-                    onClick={addBlankCard}
-                    className="min-h-9 rounded-control px-2 text-xs font-semibold text-ink-500 transition-colors hover:bg-surface-subtle hover:text-brand-700"
-                  >
-                    or start manually
-                  </button>
-                )}
               </div>
             </form>
 
