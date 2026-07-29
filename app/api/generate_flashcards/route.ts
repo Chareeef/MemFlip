@@ -1,11 +1,19 @@
 import Groq from "groq-sdk";
 import { NextRequest, NextResponse } from "next/server";
 
-// Initializing the Groq client with the API key from environment variables
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
 // The POST function to handle incoming requests
 export async function POST(req: NextRequest) {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) {
+    return NextResponse.json(
+      { error: "Flashcard generation is temporarily unavailable" },
+      { status: 503 },
+    );
+  }
+
+  // Initialize per request so builds do not require runtime secrets.
+  const groq = new Groq({ apiKey });
+
   // Extracting the subject from the request body
   const { subject, numberOfFlashcards } = await req.json();
 
@@ -17,10 +25,16 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // If numberOfFlashcards is null, return a 400 Bad Request error
-  if (!numberOfFlashcards) {
+  // Keep requests bounded so the UI remains responsive and output stays useful.
+  if (
+    !Number.isInteger(numberOfFlashcards) ||
+    numberOfFlashcards < 3 ||
+    numberOfFlashcards > 30
+  ) {
     return new NextResponse(
-      JSON.stringify({ error: "numberOfFlashcards not provided" }),
+      JSON.stringify({
+        error: "numberOfFlashcards must be an integer between 3 and 30",
+      }),
       { status: 400 },
     );
   }
@@ -43,7 +57,8 @@ export async function POST(req: NextRequest) {
         items: { $ref: "#/$defs/Flashcard" }, // Each item in the flashcards array must follow the Flashcard schema
         title: "Flashcards", // Name of the flashcards array
         type: "array", // The flashcards field is an array
-        length: numberOfFlashcards, // The array is expected to have 10 items
+        minItems: numberOfFlashcards,
+        maxItems: numberOfFlashcards,
       },
     },
     required: ["flashcards"], // The flashcards field is required in the schema

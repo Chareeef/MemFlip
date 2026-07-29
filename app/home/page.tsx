@@ -1,81 +1,39 @@
 "use client";
+
+import { useUser } from "@clerk/nextjs";
+import { Flashcard } from "@/types";
 import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
-import { Flashcard } from "@/types";
-import Flashcards from "../components/Flashcards";
-import { useUser } from "@clerk/nextjs";
-import Alert from "../components/Alert";
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  FiArrowRight,
+  FiBookOpen,
+  FiLayers,
+  FiPlus,
+  FiRefreshCw,
+  FiSearch,
+} from "react-icons/fi";
+import Alert, { AlertType } from "../components/Alert";
+import StudySession from "../components/StudySession";
+import Button from "../components/ui/Button";
+import EmptyState from "../components/ui/EmptyState";
 import { showAlert } from "../utils";
-import { BiLoader } from "react-icons/bi";
 
-function FlashcardsModal({
-  subject,
-  flashcards,
-  isOpen,
-  onClose,
-}: {
-  subject: string;
-  flashcards: Flashcard[];
-  isOpen: boolean;
-  onClose: () => void;
-}) {
-  if (!isOpen) return null;
+type LoadState = "loading" | "ready" | "error";
+type SortOrder = "az" | "za";
 
+function LibrarySkeleton() {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold text-indigo-800">{subject}</h2>
-            <button
-              onClick={onClose}
-              className="text-gray-500 hover:text-gray-700 transition duration-150 ease-in-out"
-            >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          </div>
-          <Flashcards flashcards={flashcards} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function FlashcardsSubjects({
-  subjects,
-  onSubjectClick,
-}: {
-  subjects: string[];
-  onSubjectClick: (subject: string) => void;
-}) {
-  return (
-    <div className="w-full grid sm:grid-cols-2 md:grid-cols-4 gap-4">
-      {subjects.map((subject, index) => (
-        <button
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" aria-hidden="true">
+      {Array.from({ length: 6 }).map((_, index) => (
+        <div
           key={index}
-          onClick={() => onSubjectClick(subject)}
-          className="h-24 overflow-auto break-words bg-white rounded-lg shadow-md sm:h-32 hover:shadow-lg transition-shadow duration-300 group"
+          className="surface-card min-h-40 p-5"
         >
-          <div className="flex items-center justify-center w-full h-full p-4 bg-gradient-to-br from-indigo-100 to-indigo-200 group-hover:from-indigo-200 group-hover:to-indigo-300 transition-colors duration-300">
-            <span className="font-medium text-center text-indigo-800 break-words group-hover:text-indigo-900 transition-colors duration-300">
-              {subject}
-            </span>
-          </div>
-        </button>
+          <div className="skeleton h-10 w-10 rounded-control" />
+          <div className="skeleton mt-6 h-5 w-2/3 rounded" />
+          <div className="skeleton mt-3 h-3 w-1/2 rounded" />
+        </div>
       ))}
     </div>
   );
@@ -83,142 +41,330 @@ function FlashcardsSubjects({
 
 export default function Home() {
   const { user, isLoaded } = useUser();
-  const [flashcardsSubjects, setFlashcardsSubjects] = useState<string[]>([]);
+  const [subjects, setSubjects] = useState<string[]>([]);
+  const [loadState, setLoadState] = useState<LoadState>("loading");
+  const [reloadKey, setReloadKey] = useState(0);
+  const [search, setSearch] = useState("");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("az");
   const [openedFlashcards, setOpenedFlashcards] = useState<Flashcard[]>([]);
-  const [openedSubject, setOpenedSubject] = useState<string>("");
-  const [isOpenFlashcardsModal, setIsOpenFlashcardsModal] =
-    useState<boolean>(false);
-  const [openAlert, setOpenAlert] = useState<boolean>(false);
-  const [alert, setAlert] = useState<string>("");
-  const [alertType, setAlertType] = useState<string>("");
+  const [openedSubject, setOpenedSubject] = useState("");
+  const [studyOpen, setStudyOpen] = useState(false);
+  const [openingSubject, setOpeningSubject] = useState<string | null>(null);
+  const [openAlert, setOpenAlert] = useState(false);
+  const [alert, setAlert] = useState("");
+  const [alertType, setAlertType] = useState<AlertType>("");
 
   useEffect(() => {
-    if (!isLoaded || !user) {
-      return;
-    }
+    if (!isLoaded || !user) return;
 
+    const controller = new AbortController();
     const getSubjects = async () => {
+      setLoadState("loading");
       try {
         const response = await fetch("/api/firestore/get_flashcards_subjects", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userId: user.id }),
+          signal: controller.signal,
         });
 
-        if (!response.ok) {
-          throw new Error();
-        }
+        if (!response.ok) throw new Error("Unable to load decks");
 
-        const data = await response.json();
-        setFlashcardsSubjects(data.subjects);
+        const data: { subjects?: string[] } = await response.json();
+        setSubjects(Array.isArray(data.subjects) ? data.subjects : []);
+        setLoadState("ready");
       } catch (error) {
-        showAlert(
-          "Something went wrong. Try again!",
-          "error",
-          setAlert,
-          setOpenAlert,
-          setAlertType,
-        );
+        if ((error as Error).name === "AbortError") return;
+        setLoadState("error");
       }
     };
 
     getSubjects();
-  }, [user, isLoaded]);
+    return () => controller.abort();
+  }, [isLoaded, reloadKey, user]);
 
-  if (!isLoaded || !user) {
-    return (
-      <div className="flex flex-col items-center justify-center grow">
-        <BiLoader className="text-2xl text-indigo-800 animate-spin" />
-      </div>
-    );
-  }
+  const filteredSubjects = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase();
+    return subjects
+      .filter((subject) => subject.toLocaleLowerCase().includes(query))
+      .sort((first, second) =>
+        sortOrder === "az"
+          ? first.localeCompare(second)
+          : second.localeCompare(first),
+      );
+  }, [search, sortOrder, subjects]);
 
-  async function openFlashcardsSet(subject: string) {
+  const openFlashcardsSet = async (subject: string) => {
+    if (!user || openingSubject) return;
+    setOpeningSubject(subject);
+
     try {
       const response = await fetch("/api/firestore/get_flashcards_set", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user?.id, subject }),
+        body: JSON.stringify({ userId: user.id, subject }),
       });
 
-      if (!response.ok) {
-        throw new Error();
+      if (!response.ok) throw new Error("Unable to load deck");
+
+      const data: { flashcardsSet?: Flashcard[] } = await response.json();
+      if (!Array.isArray(data.flashcardsSet) || data.flashcardsSet.length === 0) {
+        showAlert(
+          "This deck does not contain any cards yet.",
+          "info",
+          setAlert,
+          setOpenAlert,
+          setAlertType,
+        );
+        return;
       }
 
-      const data = await response.json();
       setOpenedSubject(subject);
       setOpenedFlashcards(data.flashcardsSet);
-      setIsOpenFlashcardsModal(true);
-    } catch (error) {
+      setStudyOpen(true);
+    } catch {
       showAlert(
-        "Something went wrong. Try again!",
+        "We couldn’t open that deck. Check your connection and try again.",
         "error",
         setAlert,
         setOpenAlert,
         setAlertType,
       );
+    } finally {
+      setOpeningSubject(null);
     }
-  }
+  };
 
-  return (
-    <div className="px-4 py-8 border-4 border-white rounded-lg grow bg-gradient-to-b from-indigo-100 to-indigo-200 sm:px-6 lg:px-8">
-      <div className="mx-auto">
-        {/* Profile info */}
-        <div className="mb-8 overflow-hidden bg-white rounded-lg shadow-lg">
-          <div className="flex flex-col items-center justify-center p-6 sm:p-8 sm:flex-row">
-            <Image
-              src={user.imageUrl}
-              alt="Profile picture"
-              width={120}
-              height={120}
-              className="mb-4 border-4 border-indigo-500 rounded-full sm:mb-0 sm:mr-6"
-            />
-            <div className="text-center sm:text-left">
-              <h2 className="mb-2 text-2xl font-bold text-gray-800">
-                {user.fullName}
-              </h2>
-              <p className="text-indigo-600">Flashcard Enthusiast</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Generate new flashcards button */}
-        <div className="mb-8 text-center">
-          <Link
-            href="/generate_flashcards"
-            className="inline-block px-6 py-3 font-bold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition duration-300 ease-in-out transform hover:scale-105"
-          >
-            Generate New Flashcards
-          </Link>
-        </div>
-
-        {/* Flashcard sets */}
-        <div className="overflow-hidden bg-white rounded-lg shadow-lg">
-          <div className="p-6 sm:p-8">
-            <h3 className="mb-4 text-xl font-semibold text-gray-800">
-              Your Flashcard Sets
-            </h3>
-            {flashcardsSubjects.length === 0 ? (
-              <div className="flex items-center justify-center w-full h-24">
-                <BiLoader className="w-6 h-6 animate-spin" />
-              </div>
-            ) : (
-              <FlashcardsSubjects
-                subjects={flashcardsSubjects}
-                onSubjectClick={openFlashcardsSet}
-              />
-            )}
-          </div>
+  if (!isLoaded) {
+    return (
+      <div className="page-shell grow" aria-label="Loading your library">
+        <div className="skeleton h-9 w-64 rounded-lg" />
+        <div className="skeleton mt-3 h-5 w-96 max-w-full rounded" />
+        <div className="mt-10">
+          <LibrarySkeleton />
         </div>
       </div>
+    );
+  }
 
-      <FlashcardsModal
+  if (!user) {
+    return (
+      <div className="page-shell flex grow items-center justify-center">
+        <EmptyState
+          icon={<FiLayers className="size-6" />}
+          title="Sign in to open your library"
+          description="Your saved decks are connected to your MemFlip account."
+          action={
+            <Link
+              href="/sign-in"
+              className="inline-flex min-h-11 items-center rounded-control bg-brand-600 px-4 text-sm font-semibold text-white"
+            >
+              Sign in
+            </Link>
+          }
+        />
+      </div>
+    );
+  }
+
+  const firstName = user.firstName || user.fullName || "there";
+
+  return (
+    <>
+      <div className="page-shell grow">
+        <section className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex min-w-0 items-center gap-4">
+            <Image
+              src={user.imageUrl}
+              alt=""
+              width={56}
+              height={56}
+              className="size-14 rounded-full border-2 border-white object-cover shadow-card"
+            />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-brand-700">
+                Your library
+              </p>
+              <h1 className="page-heading mt-1 truncate">
+                Welcome back, {firstName}
+              </h1>
+            </div>
+          </div>
+          <Link
+            href="/generate_flashcards"
+            className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-control bg-brand-600 px-5 text-sm font-semibold text-white shadow-soft transition-[background-color,transform] hover:bg-brand-700 active:translate-y-px"
+          >
+            <FiPlus className="size-4" aria-hidden="true" />
+            Create a deck
+          </Link>
+        </section>
+
+        <section
+          className="surface-card mt-9 overflow-hidden"
+          aria-labelledby="decks-heading"
+        >
+          <div className="flex flex-col gap-5 border-b border-[var(--border)] px-5 py-5 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2
+                id="decks-heading"
+                className="text-xl font-bold tracking-[-0.025em] text-ink-900"
+              >
+                Saved decks
+              </h2>
+              <p className="mt-1 text-sm text-ink-500">
+                {loadState === "ready"
+                  ? `${subjects.length} ${
+                      subjects.length === 1 ? "deck" : "decks"
+                    } ready to study`
+                  : "Your study collection"}
+              </p>
+            </div>
+
+            {subjects.length > 0 && loadState === "ready" && (
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <label className="relative block min-w-0 sm:w-72">
+                  <span className="sr-only">Search decks</span>
+                  <FiSearch
+                    className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-500"
+                    aria-hidden="true"
+                  />
+                  <input
+                    type="search"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    className="input-control !pl-9"
+                    placeholder="Search your decks"
+                  />
+                </label>
+                <label>
+                  <span className="sr-only">Sort decks</span>
+                  <select
+                    value={sortOrder}
+                    onChange={(event) =>
+                      setSortOrder(event.target.value as SortOrder)
+                    }
+                    className="input-control sm:w-40"
+                  >
+                    <option value="az">Name A–Z</option>
+                    <option value="za">Name Z–A</option>
+                  </select>
+                </label>
+              </div>
+            )}
+          </div>
+
+          <div className="p-4 sm:p-6">
+            {loadState === "loading" && <LibrarySkeleton />}
+
+            {loadState === "error" && (
+              <EmptyState
+                icon={<FiRefreshCw className="size-6" />}
+                title="Your library didn’t load"
+                description="Check your connection, then try once more. Your saved decks are safe."
+                action={
+                  <Button
+                    variant="secondary"
+                    onClick={() => setReloadKey((key) => key + 1)}
+                    leadingIcon={<FiRefreshCw className="size-4" />}
+                  >
+                    Try again
+                  </Button>
+                }
+              />
+            )}
+
+            {loadState === "ready" && subjects.length === 0 && (
+              <EmptyState
+                icon={<FiLayers className="size-6" />}
+                title="Create your first deck"
+                description="Choose a topic and MemFlip will help you turn it into focused, editable flashcards."
+                action={
+                  <Link
+                    href="/generate_flashcards"
+                    className="inline-flex min-h-11 items-center gap-2 rounded-control bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700"
+                  >
+                    <FiPlus className="size-4" aria-hidden="true" />
+                    Generate flashcards
+                  </Link>
+                }
+              />
+            )}
+
+            {loadState === "ready" &&
+              subjects.length > 0 &&
+              filteredSubjects.length === 0 && (
+                <EmptyState
+                  compact
+                  icon={<FiSearch className="size-6" />}
+                  title="No matching decks"
+                  description={`We couldn’t find a deck matching “${search.trim()}”. Try a shorter or different search.`}
+                  action={
+                    <Button variant="quiet" onClick={() => setSearch("")}>
+                      Clear search
+                    </Button>
+                  }
+                />
+              )}
+
+            {loadState === "ready" && filteredSubjects.length > 0 && (
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {filteredSubjects.map((subject) => {
+                  const loading = openingSubject === subject;
+                  return (
+                    <button
+                      key={subject}
+                      type="button"
+                      onClick={() => openFlashcardsSet(subject)}
+                      disabled={openingSubject !== null}
+                      className="group relative flex min-h-40 flex-col rounded-card border border-[var(--border)] bg-surface-raised p-5 text-left shadow-soft transition-[border-color,box-shadow,transform,opacity] duration-150 ease-product hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-card active:translate-y-0 disabled:opacity-65"
+                      aria-label={`Study ${subject}`}
+                    >
+                      <span className="flex items-start justify-between gap-3">
+                        <span className="grid size-10 place-items-center rounded-control bg-brand-50 text-brand-700 transition-colors group-hover:bg-brand-100">
+                          <FiBookOpen className="size-5" aria-hidden="true" />
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-ink-500">
+                          {loading ? (
+                            <>
+                              <FiRefreshCw
+                                className="size-3.5 animate-spin"
+                                aria-hidden="true"
+                              />
+                              Opening
+                            </>
+                          ) : (
+                            <>
+                              Study
+                              <FiArrowRight
+                                className="size-3.5 transition-transform group-hover:translate-x-0.5"
+                                aria-hidden="true"
+                              />
+                            </>
+                          )}
+                        </span>
+                      </span>
+                      <span className="mt-6 line-clamp-2 break-words text-lg font-bold leading-6 tracking-[-0.02em] text-ink-900">
+                        {subject}
+                      </span>
+                      <span className="mt-2 text-xs font-medium text-ink-500">
+                        Saved deck · Ready to review
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
+
+      <StudySession
         subject={openedSubject}
         flashcards={openedFlashcards}
-        isOpen={isOpenFlashcardsModal}
-        onClose={() => setIsOpenFlashcardsModal(false)}
+        open={studyOpen}
+        onClose={() => setStudyOpen(false)}
       />
       <Alert message={alert} openAlert={openAlert} type={alertType} />
-    </div>
+    </>
   );
 }

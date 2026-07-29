@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { getFlashcardsSetsIds } from "../firestoreUtils";
 
 /**
@@ -14,12 +15,27 @@ import { getFlashcardsSetsIds } from "../firestoreUtils";
  */
 export async function POST(req: NextRequest) {
   const { userId } = await req.json();
+  const { userId: authenticatedUserId } = auth();
 
   // Validate the userId parameter
   if (!userId) {
     return new NextResponse(
       JSON.stringify({ error: "Please specify the userId" }),
       { status: 400 },
+    );
+  }
+
+  if (!authenticatedUserId) {
+    return NextResponse.json(
+      { error: "Authentication required" },
+      { status: 401 },
+    );
+  }
+
+  if (authenticatedUserId !== userId) {
+    return NextResponse.json(
+      { error: "You cannot open this library" },
+      { status: 403 },
     );
   }
 

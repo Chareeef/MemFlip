@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { getFlashcardsSet } from "../firestoreUtils";
 
 /**
@@ -15,6 +16,7 @@ import { getFlashcardsSet } from "../firestoreUtils";
  */
 export async function POST(req: NextRequest) {
   const { userId, subject } = await req.json();
+  const { userId: authenticatedUserId } = auth();
 
   // Validate the userId and subject parameters
   if (!userId || !subject) {
@@ -23,6 +25,20 @@ export async function POST(req: NextRequest) {
         error: "Please specify both userId and subject",
       }),
       { status: 400 },
+    );
+  }
+
+  if (!authenticatedUserId) {
+    return NextResponse.json(
+      { error: "Authentication required" },
+      { status: 401 },
+    );
+  }
+
+  if (authenticatedUserId !== userId) {
+    return NextResponse.json(
+      { error: "You cannot open this library" },
+      { status: 403 },
     );
   }
 

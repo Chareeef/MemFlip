@@ -1,57 +1,160 @@
+"use client";
+
 import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
-import Link from "next/link";
 import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { FiHome, FiMenu, FiPlus, FiX } from "react-icons/fi";
+
+const signedInLinks = [
+  { href: "/home", label: "Library", icon: FiHome },
+  { href: "/generate_flashcards", label: "Create", icon: FiPlus },
+];
 
 export default function Header() {
+  const pathname = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  const linkClass = (href: string) => {
+    const active = pathname === href;
+    return `inline-flex min-h-10 items-center gap-2 rounded-control px-3 text-sm font-semibold transition-colors duration-150 ${
+      active
+        ? "bg-brand-50 text-brand-800"
+        : "text-ink-700 hover:bg-surface-subtle hover:text-ink-900"
+    }`;
+  };
+
   return (
-    <header className="w-full text-white bg-indigo-600 shadow-md">
-      <div className="px-4 mx-auto sm:px-6 lg:px-8">
-        <div className="flex flex-col items-center justify-between py-4 sm:flex-row gap-4 sm:gap-0">
-          <Link
-            href="/"
-            className="flex flex-col items-center text-lg md:flex-row gap-2"
-          >
-            <Image
-              src="/icons/icon.png"
-              alt="MemFlip Logo"
-              width={590}
-              height={590}
-              className="rounded-lg size-[3rem] shadow-sm"
-            />
-            <div className="flex flex-col justify-center text-center md:text-left">
-              <h1 className="text-xl font-bold">MemFlip</h1>
-              <p className="hidden text-xs italic sm:text-sm md:text-base sm:block">
-                Generate your flashcards in a snap!
-              </p>
+    <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-white/95 backdrop-blur-md">
+      <div className="mx-auto flex h-16 max-w-content items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+        <Link
+          href="/"
+          className="group flex min-w-0 items-center gap-3 rounded-control"
+          aria-label="MemFlip home"
+        >
+          <Image
+            src="/icons/icon.png"
+            alt=""
+            width={44}
+            height={44}
+            priority
+            className="size-10 rounded-[0.65rem] shadow-soft transition-transform duration-150 ease-product group-active:translate-y-px"
+          />
+          <span className="min-w-0">
+            <span className="block text-[1.05rem] font-extrabold leading-5 tracking-[-0.025em] text-ink-900">
+              MemFlip
+            </span>
+            <span className="hidden text-xs leading-4 text-ink-500 md:block">
+              Learn with clarity
+            </span>
+          </span>
+        </Link>
+
+        <div className="hidden items-center gap-2 sm:flex">
+          <SignedIn>
+            <nav className="flex items-center gap-1" aria-label="Main navigation">
+              {signedInLinks.map((link) => {
+                const Icon = link.icon;
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className={linkClass(link.href)}
+                    aria-current={pathname === link.href ? "page" : undefined}
+                  >
+                    <Icon className="size-4" aria-hidden="true" />
+                    {link.label}
+                  </Link>
+                );
+              })}
+            </nav>
+            <div className="ml-2 border-l border-[var(--border)] pl-4">
+              <UserButton afterSignOutUrl="/" />
             </div>
-          </Link>
-          <nav className="flex items-center text-sm space-x-4 md:text-base">
-            <SignedOut>
-              <Link
-                href="/sign-in"
-                className="p-2 hover:text-indigo-200 transition duration-300"
-              >
-                Sign In
+          </SignedIn>
+          <SignedOut>
+            <Link
+              href="/sign-in"
+              className="inline-flex min-h-10 items-center rounded-control px-3 text-sm font-semibold text-ink-700 hover:bg-surface-subtle"
+            >
+              Sign in
+            </Link>
+            <Link
+              href="/sign-up"
+              className="inline-flex min-h-10 items-center rounded-control bg-brand-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
+            >
+              Get started
+            </Link>
+          </SignedOut>
+        </div>
+
+        <div className="flex items-center gap-2 sm:hidden">
+          <SignedIn>
+            <UserButton afterSignOutUrl="/" />
+          </SignedIn>
+          <button
+            type="button"
+            className="icon-button"
+            aria-expanded={mobileOpen}
+            aria-controls="mobile-navigation"
+            aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
+            onClick={() => setMobileOpen((open) => !open)}
+          >
+            {mobileOpen ? (
+              <FiX className="size-5" aria-hidden="true" />
+            ) : (
+              <FiMenu className="size-5" aria-hidden="true" />
+            )}
+          </button>
+        </div>
+      </div>
+
+      {mobileOpen && (
+        <div
+          id="mobile-navigation"
+          className="border-t border-[var(--border)] bg-white px-4 py-3 shadow-soft sm:hidden"
+        >
+          <SignedIn>
+            <nav
+              className="grid gap-1"
+              aria-label="Mobile main navigation"
+            >
+              {signedInLinks.map((link) => {
+                const Icon = link.icon;
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className={linkClass(link.href)}
+                    aria-current={pathname === link.href ? "page" : undefined}
+                  >
+                    <Icon className="size-4" aria-hidden="true" />
+                    {link.label}
+                  </Link>
+                );
+              })}
+            </nav>
+          </SignedIn>
+          <SignedOut>
+            <nav className="grid gap-2" aria-label="Account navigation">
+              <Link href="/sign-in" className={linkClass("/sign-in")}>
+                Sign in
               </Link>
               <Link
                 href="/sign-up"
-                className="p-2 text-indigo-600 bg-white rounded-md hover:bg-indigo-100 transition duration-300"
+                className="inline-flex min-h-11 items-center justify-center rounded-control bg-brand-600 px-4 text-sm font-semibold text-white"
               >
-                Sign Up
+                Get started
               </Link>
-            </SignedOut>
-            <SignedIn>
-              <Link
-                href="/home"
-                className="hover:text-indigo-200 transition duration-300"
-              >
-                Home
-              </Link>
-              <UserButton afterSignOutUrl="/" />
-            </SignedIn>
-          </nav>
+            </nav>
+          </SignedOut>
         </div>
-      </div>
+      )}
     </header>
   );
 }

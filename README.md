@@ -1,54 +1,190 @@
 # MemFlip
 
-## Overview
+MemFlip is an AI-assisted flashcard application for creating, refining,
+organising, and studying focused learning material.
 
-Welcome to **MemFlip**! MemFlip is your go-to app for generating flashcards on any topic, powered by cutting-edge AI. Whether you're studying for an exam, learning a new language, or just curious about something, MemFlip makes it easy to create, save, and review flashcards. Ready to enhance your learning experience? [Check it out here!](https://mem-flip.live)
+The product combines fast AI drafting with deliberate human review: generated
+cards remain editable drafts until the learner approves and saves them.
 
-![MemFlip Landing Page](public/screenshots/landing_page.png)
+[Open MemFlip](https://mem-flip.live)
 
-## Features
+## Highlights
 
-### 1. Request Flashcards on Any Topic
+- Generate a deck from a topic with Groq-powered AI.
+- Start manually and build a deck without AI.
+- Edit every question and answer before saving.
+- Add or remove draft cards, with undo support for removals.
+- Search and sort saved decks.
+- Browse a complete deck or study one card at a time.
+- Flip cards with mouse, touch, Enter, or Space.
+- Navigate study sessions with buttons or arrow keys.
+- Reflect on recall with Again, Hard, Good, and Easy responses.
+- Review a clear session summary after completing a deck.
+- Use the application comfortably across mobile, tablet, and desktop layouts.
 
-Simply enter a topic of your choice, and MemFlip will generate a set of flashcards tailored to your needs.
+## Product experience
 
-![Request Flashcards](public/screenshots/query_flashcards.png)
+### Create
 
-### 2. Save or Generate New Flashcards
+Enter a focused subject and choose between 3 and 30 cards. MemFlip shows a
+layout-matched loading state while the draft is generated and preserves the
+topic if generation fails.
 
-Once you've generated a set of flashcards, you can save them for future use or request a new set if you want to explore different content.
+Generated cards are clearly marked as unsaved. Questions and answers use
+auto-resizing fields, inline validation, and an explicit save state. Replacing
+an existing draft requires confirmation.
 
-![Save Flashcards](public/screenshots/new_flashcards.png)
+### Organise
 
-### 3. Access Your Saved Flashcards
+Saved decks live in a searchable, sortable library. Loading, empty, no-result,
+and network-error states are distinct, so the interface always communicates
+what is happening and what to do next.
 
-Easily access all your previously saved flashcard sets in one place. No need to worry about losing your study material.
+### Study
 
-![Access Flashcards](public/screenshots/home.png)
+Each saved deck supports two views:
 
-### 4. Review Your Flashcards
+- **Study:** A focused, one-card experience with progress, directional
+  navigation, recall feedback, and a completion summary.
+- **Browse all:** A responsive grid for scanning and flipping every card in the
+  deck.
 
-Open any saved flashcard set and start reviewing right away. It's simple and effective for retaining knowledge.
+Flashcards use a stable 3D scene to avoid layout shifts or face bleed during
+flips. Long content scrolls within the card without changing its dimensions.
 
-![Review Flashcards](public/screenshots/review_flashcards.png)
+## Accessibility
 
-## Tech Stack
+MemFlip includes:
 
-- **Framework: Next.js**  
-  Next.js was chosen for its powerful features like server-side rendering (SSR) and static site generation (SSG), which provide a fast and optimized user experience. Its file-based routing and built-in API routes make it easy to manage and scale the application.
+- Full keyboard navigation and visible focus states.
+- A skip link and semantic page structure.
+- Accessible dialogs with focus trapping, Escape handling, focus restoration,
+  and scroll locking.
+- Screen-reader announcements for card side, progress, loading, errors, and
+  completion.
+- Comfortable touch targets and sufficient colour contrast.
+- A complete `prefers-reduced-motion` fallback, including non-animated card
+  flipping.
 
-- **AI Implementation: Groq API**  
-  The Groq API powers the AI-driven flashcard generation in MemFlip. It's a highly efficient tool for creating dynamic, contextually relevant flashcards on any topic, ensuring that the content is both accurate and personalized.
+## Technology
 
-- **Styling: Tailwind CSS**  
-  Tailwind CSS is utilized for styling due to its utility-first approach, which allows for rapid UI development. Its responsive design capabilities and customizable nature make it ideal for creating a clean and consistent user interface.
+- [Next.js](https://nextjs.org/) App Router and TypeScript
+- [React](https://react.dev/)
+- [Tailwind CSS](https://tailwindcss.com/) with shared design tokens
+- [Clerk](https://clerk.com/) for authentication
+- [Cloud Firestore](https://firebase.google.com/docs/firestore) for saved decks
+- [Groq](https://groq.com/) for AI generation
+- [Vercel Analytics](https://vercel.com/analytics)
 
-- **Authentication and User Management: Clerk**  
-  Clerk is used for authentication and user management, providing a seamless and secure login experience. It supports multiple authentication methods and simplifies the management of user sessions and profiles, enhancing the overall user experience.
+No separate animation library is required. Motion is implemented with
+lightweight CSS transforms and opacity transitions.
 
-- **Storage: Firestore**  
-  Firestore is chosen for its flexible, scalable, and real-time database capabilities. It seamlessly integrates with Next.js, allowing for efficient storage and retrieval of user-generated flashcards. This ensures that data is reliably stored and quickly accessible.
+## Getting started
 
-## Conclusion
+### Prerequisites
 
-Thank you for using MemFlip! We hope our app helps you learn and retain information more efficiently. Your feedback is always welcome as we strive to improve and offer the best learning experience possible.
+- Node.js 20 or newer
+- npm
+- Clerk, Firebase, and Groq projects
+
+### Install
+
+```bash
+git clone git@github.com:Chareeef/MemFlip.git
+cd MemFlip
+npm install
+```
+
+### Environment variables
+
+Create `.env.local` and provide:
+
+```dotenv
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
+CLERK_SECRET_KEY=
+
+GROQ_API_KEY=
+
+FIREBASE_API_KEY=
+FIREBASE_AUTH_DOMAIN=
+FIREBASE_PROJECT_ID=
+FIREBASE_STORAGE_BUCKET=
+FIREBASE_MESSAGING_SENDER_ID=
+FIREBASE_APP_ID=
+FIREBASE_MEASUREMENT_ID=
+```
+
+For a project already connected to Vercel, the variables can be pulled with:
+
+```bash
+npx vercel link
+npx vercel env pull .env.local
+```
+
+Use `--environment=production` or `--environment=preview` when you need a
+different Vercel environment.
+
+Never commit `.env.local` or expose its values in client-side code.
+
+### Run locally
+
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+## Available commands
+
+```bash
+npm run dev
+npm run lint
+npm exec tsc -- --noEmit
+npm run build
+npm start
+```
+
+## Project structure
+
+```text
+app/
+├── api/                    # Groq generation and Firestore routes
+├── components/
+│   ├── ui/                 # Shared button, modal, and empty-state primitives
+│   ├── Flashcards.tsx      # Responsive browseable card grid
+│   └── StudySession.tsx    # Focused study and completion flow
+├── generate_flashcards/    # AI and manual deck creation
+├── home/                   # Authenticated deck library
+├── globals.css             # Design tokens, shared styles, and motion
+└── page.tsx                # Public landing page
+```
+
+## Data model
+
+A flashcard contains two string fields:
+
+```ts
+interface Flashcard {
+  front: string;
+  back: string;
+}
+```
+
+Decks are currently stored by subject under each authenticated user. Review
+responses are intentionally session-only because the current backend does not
+yet include a spaced-repetition scheduling model.
+
+## Validation
+
+Before publishing changes, run:
+
+```bash
+npm run lint
+npm exec tsc -- --noEmit
+npm run build
+git diff --check
+```
+
+## License
+
+No license has been specified for this repository.
