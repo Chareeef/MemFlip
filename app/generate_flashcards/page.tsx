@@ -2,7 +2,13 @@
 
 import { useUser } from "@clerk/nextjs";
 import { Flashcard } from "@/types";
-import { FormEvent, useLayoutEffect, useRef, useState } from "react";
+import {
+  FormEvent,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
 import {
   FiAlertCircle,
@@ -24,11 +30,24 @@ type DraftFlashcard = Flashcard & { id: string };
 type RequestState = "idle" | "loading" | "success" | "error";
 type SaveState = "idle" | "saving" | "saved";
 
+const MAX_DECK_SIZE = 20;
+
 function createId(index = 0) {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
   }
   return `${Date.now()}-${index}`;
+}
+
+function normalizeQuestion(question: string) {
+  return question
+    .normalize("NFKC")
+    .toLocaleLowerCase()
+    .replace(
+      /[\s!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~\u060c\u061b\u061f\u2000-\u206f\u3000-\u303f]+/g,
+      " ",
+    )
+    .trim();
 }
 
 function AutoResizeTextarea({
@@ -94,6 +113,13 @@ export default function GenerateFlashcards() {
   const [flashcards, setFlashcards] = useState<DraftFlashcard[]>([]);
   const [requestState, setRequestState] = useState<RequestState>("idle");
   const [requestError, setRequestError] = useState("");
+  const [additionalCardCount, setAdditionalCardCount] = useState<number | "">(
+    3,
+  );
+  const [additionalCountTouched, setAdditionalCountTouched] = useState(false);
+  const [additionalRequestState, setAdditionalRequestState] =
+    useState<RequestState>("idle");
+  const [additionalRequestError, setAdditionalRequestError] = useState("");
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [showValidation, setShowValidation] = useState(false);
   const [confirmRegenerate, setConfirmRegenerate] = useState(false);
@@ -110,9 +136,29 @@ export default function GenerateFlashcards() {
     numberOfFlashcards === "" ||
     !Number.isInteger(cardCount) ||
     cardCount < 3 ||
-    cardCount > 20;
+    cardCount > MAX_DECK_SIZE;
+  const remainingCardSlots = MAX_DECK_SIZE - flashcards.length;
+  const additionalCount =
+    additionalCardCount === "" ? 0 : additionalCardCount;
+  const additionalCountInvalid =
+    additionalCardCount === "" ||
+    !Number.isInteger(additionalCount) ||
+    additionalCount < 1 ||
+    additionalCount > remainingCardSlots;
+  const generationInProgress =
+    requestState === "loading" || additionalRequestState === "loading";
+
+  useEffect(() => {
+    if (remainingCardSlots <= 0) return;
+    setAdditionalCardCount((currentCount) =>
+      currentCount === ""
+        ? currentCount
+        : Math.min(currentCount, remainingCardSlots),
+    );
+  }, [remainingCardSlots]);
 
   const performGeneration = async () => {
+    if (generationInProgress) return;
     const cleanSubject = subject.trim();
     if (!cleanSubject) {
       setRequestError("Enter a topic to generate flashcards.");
@@ -171,6 +217,12 @@ export default function GenerateFlashcards() {
           back: card.back.trim(),
         })),
       );
+      const nextRemainingSlots = MAX_DECK_SIZE - validCards.length;
+      if (nextRemainingSlots > 0) {
+        setAdditionalCardCount(Math.min(3, nextRemainingSlots));
+      }
+      setAdditionalRequestState("idle");
+      setAdditionalRequestError("");
       setRequestState("success");
       showAlert(
         `${validCards.length} editable flashcards are ready to review.`,
@@ -191,7 +243,7 @@ export default function GenerateFlashcards() {
 
   const handleGenerate = (event: FormEvent) => {
     event.preventDefault();
-    if (requestState === "loading") return;
+    if (generationInProgress) return;
     if (flashcards.length > 0) {
       setConfirmRegenerate(true);
     } else {
@@ -211,6 +263,7 @@ export default function GenerateFlashcards() {
   };
 
   const removeCard = (id: string) => {
+    if (generationInProgress) return;
     const index = flashcards.findIndex((card) => card.id === id);
     if (index < 0) return;
     setLastRemoved({ card: flashcards[index], index });
@@ -220,6 +273,16 @@ export default function GenerateFlashcards() {
 
   const undoRemove = () => {
     if (!lastRemoved) return;
+    if (flashcards.length >= MAX_DECK_SIZE) {
+      showAlert(
+        "This deck already has the maximum of 20 cards.",
+        "info",
+        setAlertMessage,
+        setOpenAlert,
+        setAlertType,
+      );
+      return;
+    }
     setFlashcards((cards) => {
       const nextCards = [...cards];
       nextCards.splice(lastRemoved.index, 0, lastRemoved.card);
@@ -229,6 +292,17 @@ export default function GenerateFlashcards() {
   };
 
   const addBlankCard = () => {
+    if (generationInProgress) return;
+    if (flashcards.length >= MAX_DECK_SIZE) {
+      showAlert(
+        "This deck already has the maximum of 20 cards.",
+        "info",
+        setAlertMessage,
+        setOpenAlert,
+        setAlertType,
+      );
+      return;
+    }
     const id = createId(flashcards.length);
     setFlashcards((cards) => [
       ...cards,
@@ -239,6 +313,112 @@ export default function GenerateFlashcards() {
     window.setTimeout(() => {
       document.getElementById(`front-${id}`)?.focus();
     }, 0);
+  };
+
+  const generateAdditionalCards = async () => {
+    if (generationInProgress) return;
+    const cleanSubject = subject.trim();
+    setAdditionalCountTouched(true);
+
+    if (!cleanSubject) {
+      setAdditionalRequestError("Enter a topic before generating more cards.");
+      document.getElementById("subject")?.focus();
+      return;
+    }
+    if (additionalCountInvalid) {
+      setAdditionalRequestError("");
+      document.getElementById("additionalCardCount")?.focus();
+      return;
+    }
+
+    const existingQuestions = flashcards.map((card) => card.front.trim());
+    const existingQuestionKeys = new Set(
+      existingQuestions
+        .map(normalizeQuestion)
+        .filter((question) => question.length > 0),
+    );
+
+    setAdditionalRequestState("loading");
+    setAdditionalRequestError("");
+    setSaveState("idle");
+    setLastRemoved(null);
+
+    try {
+      const response = await fetch("/api/generate_flashcards", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subject: cleanSubject,
+          numberOfFlashcards: additionalCount,
+          existingQuestions,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Generation failed");
+
+      const generated: Flashcard[] = Array.isArray(data.flashcards)
+        ? data.flashcards
+        : [];
+      const uniqueCards: Flashcard[] = [];
+      const seenQuestions = new Set(existingQuestionKeys);
+
+      for (const card of generated) {
+        if (
+          !card ||
+          typeof card.front !== "string" ||
+          typeof card.back !== "string"
+        ) {
+          continue;
+        }
+
+        const front = card.front.trim();
+        const back = card.back.trim();
+        const questionKey = normalizeQuestion(front);
+        if (!front || !back || !questionKey || seenQuestions.has(questionKey)) {
+          continue;
+        }
+
+        seenQuestions.add(questionKey);
+        uniqueCards.push({ front, back });
+      }
+
+      if (uniqueCards.length !== additionalCount) {
+        throw new Error(
+          "The AI couldn’t create enough unique questions. Try a smaller number or make the topic more specific.",
+        );
+      }
+
+      setFlashcards((cards) => [
+        ...cards,
+        ...uniqueCards.map((card, index) => ({
+          ...card,
+          id: createId(cards.length + index),
+        })),
+      ]);
+      const nextRemainingSlots = remainingCardSlots - uniqueCards.length;
+      if (nextRemainingSlots > 0) {
+        setAdditionalCardCount(Math.min(3, nextRemainingSlots));
+      }
+      setAdditionalCountTouched(false);
+      setAdditionalRequestState("success");
+      showAlert(
+        `${uniqueCards.length} new ${
+          uniqueCards.length === 1 ? "card was" : "cards were"
+        } added without repeated questions.`,
+        "success",
+        setAlertMessage,
+        setOpenAlert,
+        setAlertType,
+      );
+    } catch (error) {
+      setAdditionalRequestState("error");
+      setAdditionalRequestError(
+        error instanceof Error
+          ? error.message
+          : "We couldn’t generate more cards. Your current draft is unchanged.",
+      );
+    }
   };
 
   const handleSaveFlashcards = async () => {
@@ -270,6 +450,17 @@ export default function GenerateFlashcards() {
       document
         .querySelector<HTMLTextAreaElement>('[aria-invalid="true"]')
         ?.focus();
+      return;
+    }
+
+    if (flashcards.length > MAX_DECK_SIZE) {
+      showAlert(
+        "A deck can contain at most 20 cards.",
+        "error",
+        setAlertMessage,
+        setOpenAlert,
+        setAlertType,
+      );
       return;
     }
 
@@ -386,7 +577,7 @@ export default function GenerateFlashcards() {
                     aria-describedby={
                       subjectInvalid ? "subject-error" : "subject-hint"
                     }
-                    disabled={requestState === "loading"}
+                    disabled={generationInProgress}
                     maxLength={160}
                   />
                   {subjectInvalid ? (
@@ -408,7 +599,7 @@ export default function GenerateFlashcards() {
                     id="numberOfFlashcards"
                     type="number"
                     min={3}
-                    max={20}
+                    max={MAX_DECK_SIZE}
                     value={numberOfFlashcards}
                     onChange={(event) => {
                       const value = event.target.value;
@@ -418,7 +609,7 @@ export default function GenerateFlashcards() {
                     }}
                     onBlur={() => setCardCountTouched(true)}
                     className="input-control"
-                    disabled={requestState === "loading"}
+                    disabled={generationInProgress}
                     aria-invalid={cardCountTouched && cardCountInvalid}
                     aria-describedby={
                       cardCountTouched && cardCountInvalid
@@ -458,6 +649,7 @@ export default function GenerateFlashcards() {
                   size="lg"
                   className="w-full sm:w-auto"
                   loading={requestState === "loading"}
+                  disabled={generationInProgress}
                   leadingIcon={<HiOutlineSparkles className="size-4" />}
                 >
                   {requestState === "loading"
@@ -540,11 +732,137 @@ export default function GenerateFlashcards() {
                   <Button
                     variant="secondary"
                     onClick={addBlankCard}
+                    disabled={
+                      generationInProgress || remainingCardSlots === 0
+                    }
                     leadingIcon={<FiPlus className="size-4" />}
                   >
                     Add blank card
                   </Button>
                 </div>
+
+                {remainingCardSlots > 0 ? (
+                  <form
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      generateAdditionalCards();
+                    }}
+                    className="surface-card mt-5 p-4 sm:p-5"
+                    aria-labelledby="generate-more-heading"
+                  >
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                      <div className="max-w-xl">
+                        <h3
+                          id="generate-more-heading"
+                          className="font-bold text-ink-900"
+                        >
+                          Generate more cards
+                        </h3>
+                        <p className="mt-1 text-sm leading-6 text-ink-500">
+                          Add new questions without repeating this draft. You
+                          can add up to {remainingCardSlots} more{" "}
+                          {remainingCardSlots === 1 ? "card" : "cards"}.
+                        </p>
+                      </div>
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                        <div className="sm:w-36">
+                          <label
+                            htmlFor="additionalCardCount"
+                            className="field-label"
+                          >
+                            Cards to add
+                          </label>
+                          <input
+                            id="additionalCardCount"
+                            type="number"
+                            min={1}
+                            max={remainingCardSlots}
+                            value={additionalCardCount}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              setAdditionalCardCount(
+                                value === "" ? "" : Number(value),
+                              );
+                              setAdditionalCountTouched(true);
+                              setAdditionalRequestError("");
+                            }}
+                            onBlur={() => setAdditionalCountTouched(true)}
+                            className="input-control"
+                            disabled={generationInProgress}
+                            aria-invalid={
+                              additionalCountTouched &&
+                              additionalCountInvalid
+                            }
+                            aria-describedby={
+                              additionalCountTouched &&
+                              additionalCountInvalid
+                                ? "additional-count-error"
+                                : undefined
+                            }
+                          />
+                          {additionalCountTouched &&
+                            additionalCountInvalid && (
+                              <p
+                                id="additional-count-error"
+                                className="field-error"
+                              >
+                                Enter a whole number from 1 to{" "}
+                                {remainingCardSlots}.
+                              </p>
+                            )}
+                        </div>
+                        <Button
+                          type="submit"
+                          className="sm:mt-6"
+                          loading={additionalRequestState === "loading"}
+                          disabled={
+                            generationInProgress || additionalCountInvalid
+                          }
+                          leadingIcon={
+                            <HiOutlineSparkles className="size-4" />
+                          }
+                        >
+                          {additionalRequestState === "loading"
+                            ? "Generating"
+                            : "Generate more"}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {additionalRequestError && (
+                      <div
+                        role="alert"
+                        className="mt-4 flex items-start gap-3 rounded-control border border-red-200 bg-[var(--danger-soft)] px-4 py-3 text-sm leading-6 text-red-900"
+                      >
+                        <FiAlertCircle
+                          className="mt-0.5 size-5 shrink-0 text-red-600"
+                          aria-hidden="true"
+                        />
+                        <p>{additionalRequestError}</p>
+                      </div>
+                    )}
+                    {additionalRequestState === "loading" && (
+                      <p className="sr-only" role="status" aria-live="polite">
+                        Generating {additionalCount} additional unique
+                        flashcards.
+                      </p>
+                    )}
+                  </form>
+                ) : (
+                  <div
+                    role="status"
+                    className="mt-5 flex items-center gap-3 rounded-control border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-900"
+                  >
+                    <FiCheckCircle
+                      className="size-5 shrink-0 text-brand-700"
+                      aria-hidden="true"
+                    />
+                    <p>
+                      This draft has reached the 20-card deck limit. Remove a
+                      card to add or generate another.
+                    </p>
+                  </div>
+                )}
 
                 {lastRemoved && (
                   <div
@@ -555,6 +873,7 @@ export default function GenerateFlashcards() {
                     <button
                       type="button"
                       onClick={undoRemove}
+                      disabled={generationInProgress}
                       className="min-h-9 rounded-control px-3 font-semibold text-brand-700 hover:bg-brand-50"
                     >
                       Undo
@@ -601,6 +920,7 @@ export default function GenerateFlashcards() {
                             <button
                               type="button"
                               onClick={() => removeCard(card.id)}
+                              disabled={generationInProgress}
                               className="icon-button !size-9 hover:!border-red-200 hover:!bg-red-50 hover:!text-red-700"
                               aria-label={`Remove card ${index + 1}`}
                             >
@@ -627,6 +947,7 @@ export default function GenerateFlashcards() {
                                 className="input-control resize-none overflow-hidden"
                                 placeholder="What should the learner recall?"
                                 aria-invalid={frontInvalid}
+                                disabled={generationInProgress}
                               />
                               {frontInvalid && (
                                 <p className="field-error">
@@ -650,6 +971,7 @@ export default function GenerateFlashcards() {
                                 className="input-control resize-none overflow-hidden"
                                 placeholder="Write the clearest useful answer."
                                 aria-invalid={backInvalid}
+                                disabled={generationInProgress}
                               />
                               {backInvalid && (
                                 <p className="field-error">Add an answer.</p>
@@ -693,7 +1015,9 @@ export default function GenerateFlashcards() {
                     size="lg"
                     onClick={handleSaveFlashcards}
                     loading={saveState === "saving"}
-                    disabled={flashcards.length === 0}
+                    disabled={
+                      flashcards.length === 0 || generationInProgress
+                    }
                     leadingIcon={<FiSave className="size-4" />}
                   >
                     {saveState === "saving"

@@ -28,6 +28,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  if (flashcards.length === 0 || flashcards.length > 20) {
+    return NextResponse.json(
+      { error: "A deck must contain between 1 and 20 cards" },
+      { status: 400 },
+    );
+  }
+
   if (!authenticatedUserId) {
     return NextResponse.json(
       { error: "Authentication required" },
