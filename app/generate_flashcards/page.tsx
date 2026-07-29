@@ -99,8 +99,6 @@ export default function GenerateFlashcards() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
   const [subject, setSubject] = useState("");
-  const [deckTitle, setDeckTitle] = useState("");
-  const [deckTitleTouched, setDeckTitleTouched] = useState(false);
   const [numberOfFlashcards, setNumberOfFlashcards] = useState<number | "">(8);
   const [cardCountTouched, setCardCountTouched] = useState(false);
   const [flashcards, setFlashcards] = useState<DraftFlashcard[]>([]);
@@ -158,14 +156,10 @@ export default function GenerateFlashcards() {
       document.getElementById("subject")?.focus();
       return;
     }
-    if (!deckTitle.trim() || deckTitle.trim().includes("/")) {
+    if (cleanSubject.includes("/")) {
       setShowValidation(true);
-      setRequestError(
-        deckTitle.trim()
-          ? "Deck titles cannot contain a forward slash (/)."
-          : "Enter a title for this deck.",
-      );
-      document.getElementById("deckTitle")?.focus();
+      setRequestError("Topics cannot contain a forward slash (/).");
+      document.getElementById("subject")?.focus();
       return;
     }
     setCardCountTouched(true);
@@ -427,27 +421,27 @@ export default function GenerateFlashcards() {
   const handleSaveFlashcards = async () => {
     setShowValidation(true);
 
-    if (!deckTitle.trim()) {
+    if (!subject.trim()) {
       showAlert(
-        "Give this deck a title before saving.",
+        "Give this deck a topic before saving.",
         "error",
         setAlertMessage,
         setOpenAlert,
         setAlertType,
       );
-      document.getElementById("deckTitle")?.focus();
+      document.getElementById("subject")?.focus();
       return;
     }
 
-    if (deckTitle.trim().includes("/")) {
+    if (subject.trim().includes("/")) {
       showAlert(
-        "Deck titles cannot contain a forward slash (/).",
+        "Topics cannot contain a forward slash (/).",
         "error",
         setAlertMessage,
         setOpenAlert,
         setAlertType,
       );
-      document.getElementById("deckTitle")?.focus();
+      document.getElementById("subject")?.focus();
       return;
     }
 
@@ -497,7 +491,7 @@ export default function GenerateFlashcards() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: user.id,
-          subject: deckTitle.trim(),
+          subject: subject.trim(),
           flashcards: flashcards.map(({ front, back }) => ({
             front: front.trim(),
             back: back.trim(),
@@ -528,10 +522,9 @@ export default function GenerateFlashcards() {
     }
   };
 
-  const subjectInvalid = showValidation && !subject.trim();
-  const deckTitleInvalid =
+  const subjectInvalid =
     showValidation &&
-    (!deckTitle.trim() || deckTitle.trim().includes("/"));
+    (!subject.trim() || subject.trim().includes("/"));
 
   return (
     <>
@@ -575,21 +568,17 @@ export default function GenerateFlashcards() {
               onSubmit={handleGenerate}
               className="px-5 py-6 sm:px-6"
             >
-              <div className="grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_10rem]">
+              <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_12rem]">
                 <div>
                   <label htmlFor="subject" className="field-label">
-                    Generation topic
+                    Topic and deck title
                   </label>
                   <input
                     id="subject"
                     type="text"
                     value={subject}
                     onChange={(event) => {
-                      const nextSubject = event.target.value;
-                      setSubject(nextSubject);
-                      if (!deckTitleTouched) {
-                        setDeckTitle(nextSubject);
-                      }
+                      setSubject(event.target.value);
                       setRequestError("");
                       setSaveState("idle");
                     }}
@@ -604,47 +593,13 @@ export default function GenerateFlashcards() {
                   />
                   {subjectInvalid ? (
                     <p id="subject-error" className="field-error">
-                      Enter a topic before continuing.
-                    </p>
-                  ) : (
-                    <p id="subject-hint" className="field-hint">
-                      Include the level or context for clearer cards.
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label htmlFor="deckTitle" className="field-label">
-                    Deck title
-                  </label>
-                  <input
-                    id="deckTitle"
-                    type="text"
-                    value={deckTitle}
-                    onChange={(event) => {
-                      setDeckTitle(event.target.value);
-                      setDeckTitleTouched(true);
-                      setRequestError("");
-                      setSaveState("idle");
-                    }}
-                    className="input-control"
-                    placeholder="e.g. Biology: Photosynthesis"
-                    aria-invalid={deckTitleInvalid}
-                    aria-describedby={
-                      deckTitleInvalid ? "deck-title-error" : "deck-title-hint"
-                    }
-                    disabled={generationInProgress}
-                    maxLength={160}
-                  />
-                  {deckTitleInvalid ? (
-                    <p id="deck-title-error" className="field-error">
-                      {!deckTitle.trim()
-                        ? "Enter a title for this deck."
+                      {!subject.trim()
+                        ? "Enter a topic before continuing."
                         : "Forward slashes are not supported."}
                     </p>
                   ) : (
-                    <p id="deck-title-hint" className="field-hint">
-                      You can rename the deck without changing its topic.
+                    <p id="subject-hint" className="field-hint">
+                      Edit this anytime to fix wording or typos before saving.
                     </p>
                   )}
                 </div>
