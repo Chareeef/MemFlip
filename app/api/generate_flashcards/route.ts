@@ -1,7 +1,10 @@
 import Groq from "groq-sdk";
 import { NextRequest, NextResponse } from "next/server";
+import {
+  MAX_DECK_SIZE,
+  normalizeQuestion,
+} from "../../flashcardConstraints";
 
-const MAX_DECK_SIZE = 20;
 const MAX_GENERATION_ATTEMPTS = 3;
 
 type ProviderError = {
@@ -21,17 +24,6 @@ type GeneratedFlashcard = {
   front: string;
   back: string;
 };
-
-function normalizeQuestion(question: string) {
-  return question
-    .normalize("NFKC")
-    .toLocaleLowerCase()
-    .replace(
-      /[\s!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~\u060c\u061b\u061f\u2000-\u206f\u3000-\u303f]+/g,
-      " ",
-    )
-    .trim();
-}
 
 function createFlashcardSchema(numberOfFlashcards: number) {
   return {

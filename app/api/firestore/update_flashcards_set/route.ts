@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { Flashcard } from "@/types";
 import { updateFlashcardsSet } from "../firestoreUtils";
+import { MAX_DECK_SIZE } from "../../../flashcardConstraints";
 
 function isValidFlashcard(card: unknown): card is Flashcard {
   if (!card || typeof card !== "object") return false;
@@ -28,6 +29,7 @@ export async function POST(req: NextRequest) {
     cleanTitle.length > 160 ||
     !Array.isArray(flashcards) ||
     flashcards.length === 0 ||
+    flashcards.length > MAX_DECK_SIZE ||
     !flashcards.every(isValidFlashcard)
   ) {
     return NextResponse.json(

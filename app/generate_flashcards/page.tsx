@@ -25,29 +25,20 @@ import Button from "../components/ui/Button";
 import EmptyState from "../components/ui/EmptyState";
 import Modal from "../components/ui/Modal";
 import { showAlert } from "../utils";
+import {
+  MAX_DECK_SIZE,
+  normalizeQuestion,
+} from "../flashcardConstraints";
 
 type DraftFlashcard = Flashcard & { id: string };
 type RequestState = "idle" | "loading" | "success" | "error";
 type SaveState = "idle" | "saving" | "saved";
-
-const MAX_DECK_SIZE = 20;
 
 function createId(index = 0) {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
   }
   return `${Date.now()}-${index}`;
-}
-
-function normalizeQuestion(question: string) {
-  return question
-    .normalize("NFKC")
-    .toLocaleLowerCase()
-    .replace(
-      /[\s!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~\u060c\u061b\u061f\u2000-\u206f\u3000-\u303f]+/g,
-      " ",
-    )
-    .trim();
 }
 
 function AutoResizeTextarea({
@@ -108,6 +99,8 @@ export default function GenerateFlashcards() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
   const [subject, setSubject] = useState("");
+  const [deckTitle, setDeckTitle] = useState("");
+  const [deckTitleTouched, setDeckTitleTouched] = useState(false);
   const [numberOfFlashcards, setNumberOfFlashcards] = useState<number | "">(8);
   const [cardCountTouched, setCardCountTouched] = useState(false);
   const [flashcards, setFlashcards] = useState<DraftFlashcard[]>([]);
@@ -163,6 +156,16 @@ export default function GenerateFlashcards() {
     if (!cleanSubject) {
       setRequestError("Enter a topic to generate flashcards.");
       document.getElementById("subject")?.focus();
+      return;
+    }
+    if (!deckTitle.trim() || deckTitle.trim().includes("/")) {
+      setShowValidation(true);
+      setRequestError(
+        deckTitle.trim()
+          ? "Deck titles cannot contain a forward slash (/)."
+          : "Enter a title for this deck.",
+      );
+      document.getElementById("deckTitle")?.focus();
       return;
     }
     setCardCountTouched(true);
@@ -424,7 +427,7 @@ export default function GenerateFlashcards() {
   const handleSaveFlashcards = async () => {
     setShowValidation(true);
 
-    if (!subject.trim()) {
+    if (!deckTitle.trim()) {
       showAlert(
         "Give this deck a title before saving.",
         "error",
@@ -432,7 +435,19 @@ export default function GenerateFlashcards() {
         setOpenAlert,
         setAlertType,
       );
-      document.getElementById("subject")?.focus();
+      document.getElementById("deckTitle")?.focus();
+      return;
+    }
+
+    if (deckTitle.trim().includes("/")) {
+      showAlert(
+        "Deck titles cannot contain a forward slash (/).",
+        "error",
+        setAlertMessage,
+        setOpenAlert,
+        setAlertType,
+      );
+      document.getElementById("deckTitle")?.focus();
       return;
     }
 
@@ -482,7 +497,7 @@ export default function GenerateFlashcards() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: user.id,
-          subject: subject.trim(),
+          subject: deckTitle.trim(),
           flashcards: flashcards.map(({ front, back }) => ({
             front: front.trim(),
             back: back.trim(),
@@ -514,6 +529,9 @@ export default function GenerateFlashcards() {
   };
 
   const subjectInvalid = showValidation && !subject.trim();
+  const deckTitleInvalid =
+    showValidation &&
+    (!deckTitle.trim() || deckTitle.trim().includes("/"));
 
   return (
     <>
@@ -557,17 +575,21 @@ export default function GenerateFlashcards() {
               onSubmit={handleGenerate}
               className="px-5 py-6 sm:px-6"
             >
-              <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_12rem]">
+              <div className="grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_10rem]">
                 <div>
                   <label htmlFor="subject" className="field-label">
-                    Topic or subject
+                    Generation topic
                   </label>
                   <input
                     id="subject"
                     type="text"
                     value={subject}
                     onChange={(event) => {
-                      setSubject(event.target.value);
+                      const nextSubject = event.target.value;
+                      setSubject(nextSubject);
+                      if (!deckTitleTouched) {
+                        setDeckTitle(nextSubject);
+                      }
                       setRequestError("");
                       setSaveState("idle");
                     }}
@@ -586,7 +608,43 @@ export default function GenerateFlashcards() {
                     </p>
                   ) : (
                     <p id="subject-hint" className="field-hint">
-                      Include the level or context when it matters.
+                      Include the level or context for clearer cards.
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor="deckTitle" className="field-label">
+                    Deck title
+                  </label>
+                  <input
+                    id="deckTitle"
+                    type="text"
+                    value={deckTitle}
+                    onChange={(event) => {
+                      setDeckTitle(event.target.value);
+                      setDeckTitleTouched(true);
+                      setRequestError("");
+                      setSaveState("idle");
+                    }}
+                    className="input-control"
+                    placeholder="e.g. Biology: Photosynthesis"
+                    aria-invalid={deckTitleInvalid}
+                    aria-describedby={
+                      deckTitleInvalid ? "deck-title-error" : "deck-title-hint"
+                    }
+                    disabled={generationInProgress}
+                    maxLength={160}
+                  />
+                  {deckTitleInvalid ? (
+                    <p id="deck-title-error" className="field-error">
+                      {!deckTitle.trim()
+                        ? "Enter a title for this deck."
+                        : "Forward slashes are not supported."}
+                    </p>
+                  ) : (
+                    <p id="deck-title-hint" className="field-hint">
+                      You can rename the deck without changing its topic.
                     </p>
                   )}
                 </div>
