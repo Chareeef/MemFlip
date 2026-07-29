@@ -1,56 +1,86 @@
 # MemFlip
 
-MemFlip is an AI-assisted flashcard application for creating, refining,
+MemFlip is an AI-assisted flashcard application for drafting, refining,
 organising, and studying focused learning material.
 
-The product combines fast AI drafting with deliberate human review: generated
-cards remain editable drafts until the learner approves and saves them.
+It combines fast AI generation with deliberate human review. Every generated
+card remains editable, nothing enters the learner's library without approval,
+and study feedback stays focused on the current session.
 
 [Open MemFlip](https://mem-flip.live)
 
+![MemFlip landing page](public/screenshots/landing_page.png)
+
 ## Highlights
 
-- Generate a deck from a topic with Groq-powered AI.
+- Generate an initial 3–20 card draft from a focused topic.
+- Extend a draft with additional AI-generated cards without repeating existing
+  questions, up to a 20-card limit.
 - Start manually and build a deck without AI.
-- Edit every question and answer before saving.
-- Add or remove draft cards, with undo support for removals.
-- Search and sort saved decks.
+- Edit every question and answer, add blank cards, and undo removals before
+  saving.
+- Search saved decks and sort by last opened, creation date, or title.
+- Rename, edit, delete, or bulk-delete saved decks.
 - Browse a complete deck or study one card at a time.
 - Flip cards with mouse, touch, Enter, or Space.
 - Navigate study sessions with buttons or arrow keys.
 - Reflect on recall with Again, Hard, Good, and Easy responses.
-- Review a clear session summary after completing a deck.
+- Review a session summary and restart the deck after rating every card.
 - Use the application comfortably across mobile, tablet, and desktop layouts.
 
 ## Product experience
 
 ### Create
 
-Enter a focused subject and choose between 3 and 30 cards. MemFlip shows a
-layout-matched loading state while the draft is generated and preserves the
-topic if generation fails.
+Enter a focused subject and choose between 3 and 20 cards for the initial
+draft. MemFlip shows a layout-matched loading state while Groq returns
+structured flashcard data, and it preserves the topic if generation fails.
+
+![Create a flashcard deck](public/screenshots/query_flashcards.png)
 
 Generated cards are clearly marked as unsaved. Questions and answers use
-auto-resizing fields, inline validation, and an explicit save state. Replacing
-an existing draft requires confirmation.
+auto-resizing fields and inline validation, while blank cards can be added
+manually and removed cards can be restored with Undo.
+
+An existing draft can be extended in place by requesting between 1 card and the
+number of slots remaining in the 20-card limit. Existing questions are sent as
+exclusions, duplicate results are filtered, and the current draft remains
+unchanged if enough unique cards cannot be produced. Replacing the entire draft
+still requires confirmation.
+
+A deck can only be saved after every question and answer is complete. The
+explicit save state distinguishes an editable draft from content already stored
+in the library.
+
+![Review generated flashcards before saving](public/screenshots/new_flashcards.png)
 
 ### Organise
 
-Saved decks live in a searchable, sortable library. Loading, empty, no-result,
-and network-error states are distinct, so the interface always communicates
-what is happening and what to do next.
+Saved decks live in a searchable library scoped to the signed-in Clerk user.
+Decks can be sorted by last opened, creation date, or title A–Z/Z–A. Each deck
+includes actions to study, edit, rename, or delete it, and selection mode
+supports deleting multiple decks together.
+
+Loading, empty, no-result, and network-error states are distinct, so the
+interface always communicates what is happening and what to do next.
+
+![Search and organise saved decks](public/screenshots/home.png)
 
 ### Study
 
 Each saved deck supports two views:
 
-- **Study:** A focused, one-card experience with progress, directional
-  navigation, recall feedback, and a completion summary.
+- **Study:** A focused, one-card experience with progress and directional
+  navigation. Reveal the answer, rate recall as Again, Hard, Good, or Easy,
+  then review the rating totals or study the deck again.
 - **Browse all:** A responsive grid for scanning and flipping every card in the
   deck.
 
 Flashcards use a stable 3D scene to avoid layout shifts or face bleed during
 flips. Long content scrolls within the card without changing its dimensions.
+The deck menu also provides direct edit and delete actions.
+
+![Study a saved flashcard deck](public/screenshots/review_flashcards.png)
 
 ## Accessibility
 
@@ -73,7 +103,7 @@ MemFlip includes:
 - [Tailwind CSS](https://tailwindcss.com/) with shared design tokens
 - [Clerk](https://clerk.com/) for authentication
 - [Cloud Firestore](https://firebase.google.com/docs/firestore) for saved decks
-- [Groq](https://groq.com/) for AI generation
+- [Groq](https://groq.com/) for structured JSON AI generation
 - [Vercel Analytics](https://vercel.com/analytics)
 
 No separate animation library is required. Motion is implemented with
@@ -148,13 +178,18 @@ npm start
 
 ```text
 app/
-├── api/                    # Groq generation and Firestore routes
+├── api/
+│   ├── generate_flashcards/ # Groq generation and uniqueness handling
+│   └── firestore/           # Authenticated deck persistence routes
 ├── components/
 │   ├── ui/                 # Shared button, modal, and empty-state primitives
 │   ├── Flashcards.tsx      # Responsive browseable card grid
 │   └── StudySession.tsx    # Focused study and completion flow
-├── generate_flashcards/    # AI and manual deck creation
+├── decks/[subject]/        # Study view and saved-deck editor
+├── generate_flashcards/    # AI/manual creation and draft extension
 ├── home/                   # Authenticated deck library
+├── sign-in/                # Clerk sign-in flow
+├── sign-up/                # Clerk registration flow
 ├── globals.css             # Design tokens, shared styles, and motion
 └── page.tsx                # Public landing page
 ```
@@ -168,11 +203,22 @@ interface Flashcard {
   front: string;
   back: string;
 }
+
+interface DeckSummary {
+  id: string;
+  subject: string;
+  createdAt: number | null;
+  lastOpenedAt: number | null;
+}
 ```
 
-Decks are currently stored by subject under each authenticated user. Review
-responses are intentionally session-only because the current backend does not
-yet include a spaced-repetition scheduling model.
+Decks are stored in Firestore at `users/{userId}/flashcards/{deckId}`. The deck
+title is its document ID; renaming a deck atomically moves its cards and
+metadata to the new ID. Creation and last-opened timestamps support library
+sorting.
+
+Again, Hard, Good, and Easy responses are intentionally session-only because
+the backend does not yet include a spaced-repetition scheduling model.
 
 ## Validation
 
