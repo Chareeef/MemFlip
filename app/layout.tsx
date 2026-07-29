@@ -6,8 +6,13 @@ import Footer from "./components/Footer";
 import { Analytics } from "@vercel/analytics/react";
 
 export const metadata: Metadata = {
-  title: "MemFlip",
-  description: "Generate your flashcards in a snap!",
+  title: {
+    default: "MemFlip — Learn with clarity",
+    template: "%s · MemFlip",
+  },
+  description:
+    "Create focused flashcards with AI, organise your decks, and study with confidence.",
+  applicationName: "MemFlip",
 };
 
 export default function RootLayout({
@@ -16,11 +21,26 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider afterSignOutUrl="/">
-      <html lang="en">
+    <ClerkProvider
+      afterSignOutUrl="/"
+      appearance={{
+        variables: {
+          colorPrimary: "#6d4aff",
+          borderRadius: "0.75rem",
+          colorText: "#211a33",
+          colorBackground: "#ffffff",
+        },
+        elements: {
+          card: "shadow-card border border-brand-100",
+          formButtonPrimary:
+            "bg-brand-600 hover:bg-brand-700 focus-visible:ring-brand-500",
+        },
+      }}
+    >
+      <html lang="en" suppressHydrationWarning>
         <head>
           <link rel="manifest" href="/manifest.json" />
-          <link rel="icon" href="/favicon.ico" />
+          <link rel="icon" href="/icons/favicon.ico" />
 
           {/* Apple Touch Icon */}
           <link
@@ -30,9 +50,14 @@ export default function RootLayout({
           />
         </head>
 
-        <body className="flex flex-col min-h-svh bg-primary">
+        <body className="flex min-h-svh flex-col bg-surface-subtle text-ink-900 antialiased">
+          <a className="skip-link" href="#main-content">
+            Skip to content
+          </a>
           <Header />
-          <main className="flex flex-col p-4 grow gap-y-4">{children}</main>
+          <main id="main-content" className="flex grow flex-col">
+            {children}
+          </main>
           <Footer />
           <Analytics />
         </body>

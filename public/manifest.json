@@ -15,6 +15,7 @@
   ],
   "start_url": "/",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "description": "Create focused flashcards with AI and study with clarity.",
+  "theme_color": "#6d4aff",
+  "background_color": "#f8f7fb"
 }

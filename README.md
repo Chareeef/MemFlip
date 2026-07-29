@@ -1,54 +1,236 @@
 # MemFlip
 
-## Overview
+MemFlip is an AI-assisted flashcard application for drafting, refining,
+organising, and studying focused learning material.
 
-Welcome to **MemFlip**! MemFlip is your go-to app for generating flashcards on any topic, powered by cutting-edge AI. Whether you're studying for an exam, learning a new language, or just curious about something, MemFlip makes it easy to create, save, and review flashcards. Ready to enhance your learning experience? [Check it out here!](https://mem-flip.live)
+It combines fast AI generation with deliberate human review. Every generated
+card remains editable, nothing enters the learner's library without approval,
+and study feedback stays focused on the current session.
 
-![MemFlip Landing Page](public/screenshots/landing_page.png)
+[Open MemFlip](https://mem-flip.live)
 
-## Features
+![MemFlip landing page](public/screenshots/landing_page.png)
 
-### 1. Request Flashcards on Any Topic
+## Highlights
 
-Simply enter a topic of your choice, and MemFlip will generate a set of flashcards tailored to your needs.
+- Generate an initial 3–20 card draft from a focused topic.
+- Extend a draft with additional AI-generated cards without repeating existing
+  questions, up to a 20-card limit.
+- Start manually and build a deck without AI.
+- Edit every question and answer, add blank cards, and undo removals before
+  saving.
+- Search saved decks and sort by last opened, creation date, or title.
+- Rename, edit, delete, or bulk-delete saved decks.
+- Browse a complete deck or study one card at a time.
+- Flip cards with mouse, touch, Enter, or Space.
+- Navigate study sessions with buttons or arrow keys.
+- Reflect on recall with Again, Hard, Good, and Easy responses.
+- Review a session summary and restart the deck after rating every card.
+- Use the application comfortably across mobile, tablet, and desktop layouts.
 
-![Request Flashcards](public/screenshots/query_flashcards.png)
+## Product experience
 
-### 2. Save or Generate New Flashcards
+### Create
 
-Once you've generated a set of flashcards, you can save them for future use or request a new set if you want to explore different content.
+Enter a focused subject and choose between 3 and 20 cards for the initial
+draft. MemFlip shows a layout-matched loading state while Groq returns
+structured flashcard data, and it preserves the topic if generation fails.
 
-![Save Flashcards](public/screenshots/new_flashcards.png)
+![Create a flashcard deck](public/screenshots/query_flashcards.png)
 
-### 3. Access Your Saved Flashcards
+Generated cards are clearly marked as unsaved. Questions and answers use
+auto-resizing fields and inline validation, while blank cards can be added
+manually and removed cards can be restored with Undo.
 
-Easily access all your previously saved flashcard sets in one place. No need to worry about losing your study material.
+An existing draft can be extended in place by requesting between 1 card and the
+number of slots remaining in the 20-card limit. Existing questions are sent as
+exclusions, duplicate results are filtered, and the current draft remains
+unchanged if enough unique cards cannot be produced. Replacing the entire draft
+still requires confirmation.
 
-![Access Flashcards](public/screenshots/home.png)
+A deck can only be saved after every question and answer is complete. The
+explicit save state distinguishes an editable draft from content already stored
+in the library.
 
-### 4. Review Your Flashcards
+![Review generated flashcards before saving](public/screenshots/new_flashcards.png)
 
-Open any saved flashcard set and start reviewing right away. It's simple and effective for retaining knowledge.
+### Organise
 
-![Review Flashcards](public/screenshots/review_flashcards.png)
+Saved decks live in a searchable library scoped to the signed-in Clerk user.
+Decks can be sorted by last opened, creation date, or title A–Z/Z–A. Each deck
+includes actions to study, edit, rename, or delete it, and selection mode
+supports deleting multiple decks together.
 
-## Tech Stack
+Loading, empty, no-result, and network-error states are distinct, so the
+interface always communicates what is happening and what to do next.
 
-- **Framework: Next.js**  
-  Next.js was chosen for its powerful features like server-side rendering (SSR) and static site generation (SSG), which provide a fast and optimized user experience. Its file-based routing and built-in API routes make it easy to manage and scale the application.
+![Search and organise saved decks](public/screenshots/home.png)
 
-- **AI Implementation: Groq API**  
-  The Groq API powers the AI-driven flashcard generation in MemFlip. It's a highly efficient tool for creating dynamic, contextually relevant flashcards on any topic, ensuring that the content is both accurate and personalized.
+### Study
 
-- **Styling: Tailwind CSS**  
-  Tailwind CSS is utilized for styling due to its utility-first approach, which allows for rapid UI development. Its responsive design capabilities and customizable nature make it ideal for creating a clean and consistent user interface.
+Each saved deck supports two views:
 
-- **Authentication and User Management: Clerk**  
-  Clerk is used for authentication and user management, providing a seamless and secure login experience. It supports multiple authentication methods and simplifies the management of user sessions and profiles, enhancing the overall user experience.
+- **Study:** A focused, one-card experience with progress and directional
+  navigation. Reveal the answer, rate recall as Again, Hard, Good, or Easy,
+  then review the rating totals or study the deck again.
+- **Browse all:** A responsive grid for scanning and flipping every card in the
+  deck.
 
-- **Storage: Firestore**  
-  Firestore is chosen for its flexible, scalable, and real-time database capabilities. It seamlessly integrates with Next.js, allowing for efficient storage and retrieval of user-generated flashcards. This ensures that data is reliably stored and quickly accessible.
+Flashcards use a stable 3D scene to avoid layout shifts or face bleed during
+flips. Long content scrolls within the card without changing its dimensions.
+The deck menu also provides direct edit and delete actions.
 
-## Conclusion
+![Study a saved flashcard deck](public/screenshots/review_flashcards.png)
 
-Thank you for using MemFlip! We hope our app helps you learn and retain information more efficiently. Your feedback is always welcome as we strive to improve and offer the best learning experience possible.
+## Accessibility
+
+MemFlip includes:
+
+- Full keyboard navigation and visible focus states.
+- A skip link and semantic page structure.
+- Accessible dialogs with focus trapping, Escape handling, focus restoration,
+  and scroll locking.
+- Screen-reader announcements for card side, progress, loading, errors, and
+  completion.
+- Comfortable touch targets and sufficient colour contrast.
+- A complete `prefers-reduced-motion` fallback, including non-animated card
+  flipping.
+
+## Technology
+
+- [Next.js](https://nextjs.org/) App Router and TypeScript
+- [React](https://react.dev/)
+- [Tailwind CSS](https://tailwindcss.com/) with shared design tokens
+- [Clerk](https://clerk.com/) for authentication
+- [Cloud Firestore](https://firebase.google.com/docs/firestore) for saved decks
+- [Groq](https://groq.com/) for structured JSON AI generation
+- [Vercel Analytics](https://vercel.com/analytics)
+
+No separate animation library is required. Motion is implemented with
+lightweight CSS transforms and opacity transitions.
+
+## Getting started
+
+### Prerequisites
+
+- Node.js 20 or newer
+- npm
+- Clerk, Firebase, and Groq projects
+
+### Install
+
+```bash
+git clone git@github.com:Chareeef/MemFlip.git
+cd MemFlip
+npm install
+```
+
+### Environment variables
+
+Create `.env.local` and provide:
+
+```dotenv
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
+CLERK_SECRET_KEY=
+
+GROQ_API_KEY=
+
+FIREBASE_API_KEY=
+FIREBASE_AUTH_DOMAIN=
+FIREBASE_PROJECT_ID=
+FIREBASE_STORAGE_BUCKET=
+FIREBASE_MESSAGING_SENDER_ID=
+FIREBASE_APP_ID=
+FIREBASE_MEASUREMENT_ID=
+```
+
+For a project already connected to Vercel, the variables can be pulled with:
+
+```bash
+npx vercel link
+npx vercel env pull .env.local
+```
+
+Use `--environment=production` or `--environment=preview` when you need a
+different Vercel environment.
+
+Never commit `.env.local` or expose its values in client-side code.
+
+### Run locally
+
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+## Available commands
+
+```bash
+npm run dev
+npm run lint
+npm exec tsc -- --noEmit
+npm run build
+npm start
+```
+
+## Project structure
+
+```text
+app/
+├── api/
+│   ├── generate_flashcards/ # Groq generation and uniqueness handling
+│   └── firestore/           # Authenticated deck persistence routes
+├── components/
+│   ├── ui/                 # Shared button, modal, and empty-state primitives
+│   ├── Flashcards.tsx      # Responsive browseable card grid
+│   └── StudySession.tsx    # Focused study and completion flow
+├── decks/[subject]/        # Study view and saved-deck editor
+├── generate_flashcards/    # AI/manual creation and draft extension
+├── home/                   # Authenticated deck library
+├── sign-in/                # Clerk sign-in flow
+├── sign-up/                # Clerk registration flow
+├── globals.css             # Design tokens, shared styles, and motion
+└── page.tsx                # Public landing page
+```
+
+## Data model
+
+A flashcard contains two string fields:
+
+```ts
+interface Flashcard {
+  front: string;
+  back: string;
+}
+
+interface DeckSummary {
+  id: string;
+  subject: string;
+  createdAt: number | null;
+  lastOpenedAt: number | null;
+}
+```
+
+Decks are stored in Firestore at `users/{userId}/flashcards/{deckId}`. The deck
+title is its document ID; renaming a deck atomically moves its cards and
+metadata to the new ID. Creation and last-opened timestamps support library
+sorting.
+
+Again, Hard, Good, and Easy responses are intentionally session-only because
+the backend does not yet include a spaced-repetition scheduling model.
+
+## Validation
+
+Before publishing changes, run:
+
+```bash
+npm run lint
+npm exec tsc -- --noEmit
+npm run build
+git diff --check
+```
+
+## License
+
+No license has been specified for this repository.

@@ -1,7 +1,20 @@
 "use client";
-import { useEffect, useState } from "react";
-import { BiLoader } from "react-icons/bi";
-import { FaExclamationTriangle, FaCheck } from "react-icons/fa";
+
+import { BiLoaderAlt } from "react-icons/bi";
+import {
+  FiAlertCircle,
+  FiCheckCircle,
+  FiInfo,
+} from "react-icons/fi";
+
+export type AlertType = "error" | "success" | "loading" | "info" | "";
+
+const styles: Record<Exclude<AlertType, "">, string> = {
+  success: "border-emerald-200 text-emerald-900",
+  error: "border-red-200 text-red-900",
+  loading: "border-brand-200 text-brand-900",
+  info: "border-blue-200 text-blue-900",
+};
 
 export default function Alert({
   message,
@@ -10,44 +23,38 @@ export default function Alert({
 }: {
   message: string;
   openAlert: boolean;
-  type: string;
+  type: AlertType | string;
 }) {
-  const [alertColor, setAlertColor] = useState("");
+  const safeType: Exclude<AlertType, ""> =
+    type === "success" ||
+    type === "error" ||
+    type === "loading" ||
+    type === "info"
+      ? type
+      : "info";
 
-  useEffect(() => {
-    switch (type) {
-      case "error":
-        setAlertColor("red");
-        break;
-      case "success":
-        setAlertColor("green");
-        break;
-      case "loading":
-        setAlertColor("blue");
-        break;
-      default:
-        break;
-    }
-  }, [type]);
+  const icon = {
+    success: <FiCheckCircle className="size-5 text-emerald-600" />,
+    error: <FiAlertCircle className="size-5 text-red-600" />,
+    loading: <BiLoaderAlt className="size-5 animate-spin text-brand-600" />,
+    info: <FiInfo className="size-5 text-blue-600" />,
+  }[safeType];
+
   return (
     <div
-      className={`
-        fixed top-4 left-1/2 transform -translate-x-1/2 z-[9999]
-        ${openAlert ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-full"}
-        transition-all duration-300 ease-in-out
-        bg-white border-t-4 md:border-l-4 md:border-t-0 border-indigo-200 p-4
-        flex items-center flex-col md:flex-row gap-x-4 gap-y-2 text-center md:text-left rounded-md shadow-lg
-        max-w-2xl min-w-base  mx-auto
-      `}
+      role={safeType === "error" ? "alert" : "status"}
+      aria-live={safeType === "error" ? "assertive" : "polite"}
+      aria-atomic="true"
+      className={`fixed left-1/2 top-4 z-[100] flex w-[calc(100%-2rem)] max-w-md -translate-x-1/2 items-start gap-3 rounded-card border bg-white px-4 py-3 shadow-floating transition-[opacity,transform] duration-200 ease-emphasized ${styles[safeType]} ${
+        openAlert
+          ? "toast-enter pointer-events-auto opacity-100"
+          : "pointer-events-none -translate-y-3 opacity-0"
+      }`}
     >
-      {type === "success" && <FaCheck className="w-6 h-6 text-green-500" />}
-      {type === "error" && (
-        <FaExclamationTriangle className="w-6 h-6 text-red-500" />
-      )}
-      {type === "loading" && <BiLoader className="w-6 h-6 animate-spin" />}
-      <div className={`flex-1 text-lg font-medium text-${alertColor}-500`}>
-        {message}
-      </div>
+      <span className="mt-0.5 shrink-0" aria-hidden="true">
+        {icon}
+      </span>
+      <p className="text-sm font-semibold leading-6">{message}</p>
     </div>
   );
 }

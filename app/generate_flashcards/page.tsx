@@ -1,185 +1,476 @@
 "use client";
-import { Flashcard } from "@/types";
-import { Dispatch, SetStateAction, useState } from "react";
-import Flashcards from "../components/Flashcards";
+
 import { useUser } from "@clerk/nextjs";
-import Alert from "../components/Alert";
+import { Flashcard } from "@/types";
+import {
+  FormEvent,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
+import {
+  FiAlertCircle,
+  FiCheckCircle,
+  FiEdit3,
+  FiPlus,
+  FiRefreshCw,
+  FiSave,
+  FiTrash2,
+} from "react-icons/fi";
+import { HiOutlineSparkles } from "react-icons/hi2";
+import Alert, { AlertType } from "../components/Alert";
+import Button from "../components/ui/Button";
+import EmptyState from "../components/ui/EmptyState";
+import Modal from "../components/ui/Modal";
 import { showAlert } from "../utils";
+import {
+  MAX_DECK_SIZE,
+  normalizeQuestion,
+} from "../flashcardConstraints";
 
-function Modal({
-  isModalOpen,
-  setIsModalOpen,
-  subject,
-  setSubject,
-  numberOfFlashcards,
-  setNumberOfFlashcards,
-  setFlashcards,
-  setOpenAlert,
-  setAlertType,
-  setAlertMessage,
-}: {
-  isModalOpen: boolean;
-  setIsModalOpen: Dispatch<SetStateAction<boolean>>;
-  subject: string;
-  setSubject: Dispatch<SetStateAction<string>>;
-  numberOfFlashcards: number;
-  setNumberOfFlashcards: Dispatch<SetStateAction<number>>;
-  setFlashcards: Dispatch<SetStateAction<Flashcard[]>>;
-  setOpenAlert: Dispatch<SetStateAction<boolean>>;
-  setAlertMessage: Dispatch<SetStateAction<string>>;
-  setAlertType: Dispatch<SetStateAction<string>>;
-}) {
-  async function handleRequest() {
-    if (!subject) {
-      showAlert(
-        "Please specify a Subject.",
-        "error",
-        setAlertMessage,
-        setOpenAlert,
-        setAlertType,
-      );
-      return;
-    } else if (!numberOfFlashcards) {
-      showAlert(
-        "Please specify a Number of Flashcards.",
-        "error",
-        setAlertMessage,
-        setOpenAlert,
-        setAlertType,
-      );
-      return;
-    }
+type DraftFlashcard = Flashcard & { id: string };
+type RequestState = "idle" | "loading" | "success" | "error";
+type SaveState = "idle" | "saving" | "saved";
 
-    try {
-      showAlert(
-        "Saving flashcards...",
-        "loading",
-        setAlertMessage,
-        setOpenAlert,
-        setAlertType,
-      );
-
-      const response = await fetch("/api/generate_flashcards", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subject, numberOfFlashcards }),
-      });
-
-      if (!response.ok) {
-        throw new Error();
-      }
-
-      const data = await response.json();
-      if (data.flashcards) {
-        setFlashcards(data.flashcards);
-      } else {
-        setFlashcards(data.properties.flashcards.items);
-      }
-
-      setIsModalOpen(false);
-      showAlert(
-        "Flashcards generated successfully!",
-        "success",
-        setAlertMessage,
-        setOpenAlert,
-        setAlertType,
-      );
-
-      setIsModalOpen(false);
-    } catch (message) {
-      showAlert(
-        "Something went wrong. Try again!",
-        "error",
-        setAlertMessage,
-        setOpenAlert,
-        setAlertType,
-      );
-    }
+function createId(index = 0) {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
   }
+  return `${Date.now()}-${index}`;
+}
+
+function AutoResizeTextarea({
+  value,
+  onChange,
+  ...props
+}: Omit<
+  React.TextareaHTMLAttributes<HTMLTextAreaElement>,
+  "onChange" | "value"
+> & {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useLayoutEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = "0px";
+    textarea.style.height = `${Math.max(textarea.scrollHeight, 92)}px`;
+  }, [value]);
 
   return (
-    <div
-      className={`${
-        isModalOpen ? "fixed" : "hidden"
-      } inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50`}
-    >
-      <div className="w-full max-w-md bg-white rounded-lg shadow-xl">
-        <div className="p-6">
-          <h2 className="mb-4 text-2xl font-bold text-gray-800">
-            Generate Flashcards
-          </h2>
-          <form className="space-y-4">
-            <div>
-              <label
-                htmlFor="subject"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Subject
-              </label>
-              <input
-                type="text"
-                id="subject"
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                className="block w-full px-2 mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                placeholder="Enter subject"
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="numberOfFlashcards"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Number of Flashcards
-              </label>
-              <input
-                type="number"
-                id="numberOfFlashcards"
-                value={numberOfFlashcards > 0 ? numberOfFlashcards : ""}
-                onChange={(e) =>
-                  setNumberOfFlashcards(parseInt(e.target.value))
-                }
-                className="block w-full pl-2 pr-1 mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                placeholder="Enter number of flashcards"
-              />
-            </div>
-          </form>
-          <div className="flex justify-end mt-6 space-x-3">
-            <button
-              className="px-4 py-2 text-gray-800 bg-gray-300 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 transition duration-300"
-              onClick={() => setIsModalOpen(false)}
-            >
-              Close
-            </button>
-            <button
-              className="px-4 py-2 text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 transition duration-300"
-              onClick={handleRequest}
-            >
-              Generate
-            </button>
+    <textarea
+      ref={textareaRef}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      rows={3}
+      {...props}
+    />
+  );
+}
+
+function GenerationSkeleton({ count }: { count: number }) {
+  return (
+    <div className="grid gap-4 lg:grid-cols-2" aria-hidden="true">
+      {Array.from({ length: Math.min(count, 6) }).map((_, index) => (
+        <div key={index} className="surface-card p-5">
+          <div className="flex items-center justify-between">
+            <div className="skeleton h-4 w-20 rounded" />
+            <div className="skeleton size-8 rounded-control" />
+          </div>
+          <div className="mt-5">
+            <div className="skeleton h-3 w-16 rounded" />
+            <div className="skeleton mt-2 h-20 rounded-control" />
+          </div>
+          <div className="mt-4">
+            <div className="skeleton h-3 w-14 rounded" />
+            <div className="skeleton mt-2 h-24 rounded-control" />
           </div>
         </div>
-      </div>
+      ))}
     </div>
   );
 }
 
 export default function GenerateFlashcards() {
-  const { user } = useUser();
+  const { user, isLoaded } = useUser();
+  const router = useRouter();
   const [subject, setSubject] = useState("");
-  const [numberOfFlashcards, setNumberOfFlashcards] = useState(0);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
+  const [deckTitle, setDeckTitle] = useState("");
+  const [deckTitleTouched, setDeckTitleTouched] = useState(false);
+  const [numberOfFlashcards, setNumberOfFlashcards] = useState<number | "">(8);
+  const [cardCountTouched, setCardCountTouched] = useState(false);
+  const [flashcards, setFlashcards] = useState<DraftFlashcard[]>([]);
+  const [requestState, setRequestState] = useState<RequestState>("idle");
+  const [requestError, setRequestError] = useState("");
+  const [additionalCardCount, setAdditionalCardCount] = useState<number | "">(
+    3,
+  );
+  const [additionalCountTouched, setAdditionalCountTouched] = useState(false);
+  const [additionalRequestState, setAdditionalRequestState] =
+    useState<RequestState>("idle");
+  const [additionalRequestError, setAdditionalRequestError] = useState("");
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [showValidation, setShowValidation] = useState(false);
+  const [confirmRegenerate, setConfirmRegenerate] = useState(false);
+  const [lastRemoved, setLastRemoved] = useState<{
+    card: DraftFlashcard;
+    index: number;
+  } | null>(null);
   const [openAlert, setOpenAlert] = useState(false);
   const [alertMessage, setAlertMessage] = useState("");
-  const [alertType, setAlertType] = useState("");
-  const router = useRouter();
+  const [alertType, setAlertType] = useState<AlertType>("");
+  const cardCount =
+    numberOfFlashcards === "" ? 0 : numberOfFlashcards;
+  const cardCountInvalid =
+    numberOfFlashcards === "" ||
+    !Number.isInteger(cardCount) ||
+    cardCount < 3 ||
+    cardCount > MAX_DECK_SIZE;
+  const remainingCardSlots = MAX_DECK_SIZE - flashcards.length;
+  const additionalCount =
+    additionalCardCount === "" ? 0 : additionalCardCount;
+  const additionalCountInvalid =
+    additionalCardCount === "" ||
+    !Number.isInteger(additionalCount) ||
+    additionalCount < 1 ||
+    additionalCount > remainingCardSlots;
+  const generationInProgress =
+    requestState === "loading" || additionalRequestState === "loading";
 
-  async function handleSaveFlashcards() {
-    if (!user?.id) {
+  useEffect(() => {
+    if (remainingCardSlots <= 0) return;
+    setAdditionalCardCount((currentCount) =>
+      currentCount === ""
+        ? currentCount
+        : Math.min(currentCount, remainingCardSlots),
+    );
+  }, [remainingCardSlots]);
+
+  const performGeneration = async () => {
+    if (generationInProgress) return;
+    const cleanSubject = subject.trim();
+    if (!cleanSubject) {
+      setRequestError("Enter a topic to generate flashcards.");
+      document.getElementById("subject")?.focus();
+      return;
+    }
+    if (!deckTitle.trim() || deckTitle.trim().includes("/")) {
+      setShowValidation(true);
+      setRequestError(
+        deckTitle.trim()
+          ? "Deck titles cannot contain a forward slash (/)."
+          : "Enter a title for this deck.",
+      );
+      document.getElementById("deckTitle")?.focus();
+      return;
+    }
+    setCardCountTouched(true);
+    if (cardCountInvalid) {
+      setRequestError("");
+      document.getElementById("numberOfFlashcards")?.focus();
+      return;
+    }
+
+    setConfirmRegenerate(false);
+    setRequestState("loading");
+    setRequestError("");
+    setSaveState("idle");
+    setShowValidation(false);
+    setLastRemoved(null);
+
+    try {
+      const response = await fetch("/api/generate_flashcards", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subject: cleanSubject,
+          numberOfFlashcards: cardCount,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Generation failed");
+
+      const generated: Flashcard[] = Array.isArray(data.flashcards)
+        ? data.flashcards
+        : data?.properties?.flashcards?.items;
+
+      if (!Array.isArray(generated) || generated.length === 0) {
+        throw new Error("No cards were returned");
+      }
+
+      const validCards = generated.filter(
+        (card) =>
+          card &&
+          typeof card.front === "string" &&
+          typeof card.back === "string",
+      );
+
+      if (validCards.length === 0) throw new Error("Cards were invalid");
+
+      setSubject(cleanSubject);
+      setFlashcards(
+        validCards.map((card, index) => ({
+          id: createId(index),
+          front: card.front.trim(),
+          back: card.back.trim(),
+        })),
+      );
+      const nextRemainingSlots = MAX_DECK_SIZE - validCards.length;
+      if (nextRemainingSlots > 0) {
+        setAdditionalCardCount(Math.min(3, nextRemainingSlots));
+      }
+      setAdditionalRequestState("idle");
+      setAdditionalRequestError("");
+      setRequestState("success");
       showAlert(
-        "It seems you are not logged in.",
+        `${validCards.length} editable flashcards are ready to review.`,
+        "success",
+        setAlertMessage,
+        setOpenAlert,
+        setAlertType,
+      );
+    } catch (error) {
+      setRequestState("error");
+      setRequestError(
+        error instanceof Error
+          ? error.message
+          : "We couldn’t generate this set. Your topic is still here—check your connection and try again.",
+      );
+    }
+  };
+
+  const handleGenerate = (event: FormEvent) => {
+    event.preventDefault();
+    if (generationInProgress) return;
+    if (flashcards.length > 0) {
+      setConfirmRegenerate(true);
+    } else {
+      performGeneration();
+    }
+  };
+
+  const updateCard = (
+    id: string,
+    field: keyof Flashcard,
+    value: string,
+  ) => {
+    setFlashcards((cards) =>
+      cards.map((card) => (card.id === id ? { ...card, [field]: value } : card)),
+    );
+    setSaveState("idle");
+  };
+
+  const removeCard = (id: string) => {
+    if (generationInProgress) return;
+    const index = flashcards.findIndex((card) => card.id === id);
+    if (index < 0) return;
+    setLastRemoved({ card: flashcards[index], index });
+    setFlashcards((cards) => cards.filter((card) => card.id !== id));
+    setSaveState("idle");
+  };
+
+  const undoRemove = () => {
+    if (!lastRemoved) return;
+    if (flashcards.length >= MAX_DECK_SIZE) {
+      showAlert(
+        "This deck already has the maximum of 20 cards.",
+        "info",
+        setAlertMessage,
+        setOpenAlert,
+        setAlertType,
+      );
+      return;
+    }
+    setFlashcards((cards) => {
+      const nextCards = [...cards];
+      nextCards.splice(lastRemoved.index, 0, lastRemoved.card);
+      return nextCards;
+    });
+    setLastRemoved(null);
+  };
+
+  const addBlankCard = () => {
+    if (generationInProgress) return;
+    if (flashcards.length >= MAX_DECK_SIZE) {
+      showAlert(
+        "This deck already has the maximum of 20 cards.",
+        "info",
+        setAlertMessage,
+        setOpenAlert,
+        setAlertType,
+      );
+      return;
+    }
+    const id = createId(flashcards.length);
+    setFlashcards((cards) => [
+      ...cards,
+      { id, front: "", back: "" },
+    ]);
+    setRequestState("success");
+    setSaveState("idle");
+    window.setTimeout(() => {
+      document.getElementById(`front-${id}`)?.focus();
+    }, 0);
+  };
+
+  const generateAdditionalCards = async () => {
+    if (generationInProgress) return;
+    const cleanSubject = subject.trim();
+    setAdditionalCountTouched(true);
+
+    if (!cleanSubject) {
+      setAdditionalRequestError("Enter a topic before generating more cards.");
+      document.getElementById("subject")?.focus();
+      return;
+    }
+    if (additionalCountInvalid) {
+      setAdditionalRequestError("");
+      document.getElementById("additionalCardCount")?.focus();
+      return;
+    }
+
+    const existingQuestions = flashcards.map((card) => card.front.trim());
+    const existingQuestionKeys = new Set(
+      existingQuestions
+        .map(normalizeQuestion)
+        .filter((question) => question.length > 0),
+    );
+
+    setAdditionalRequestState("loading");
+    setAdditionalRequestError("");
+    setSaveState("idle");
+    setLastRemoved(null);
+
+    try {
+      const response = await fetch("/api/generate_flashcards", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subject: cleanSubject,
+          numberOfFlashcards: additionalCount,
+          existingQuestions,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Generation failed");
+
+      const generated: Flashcard[] = Array.isArray(data.flashcards)
+        ? data.flashcards
+        : [];
+      const uniqueCards: Flashcard[] = [];
+      const seenQuestions = new Set(existingQuestionKeys);
+
+      for (const card of generated) {
+        if (
+          !card ||
+          typeof card.front !== "string" ||
+          typeof card.back !== "string"
+        ) {
+          continue;
+        }
+
+        const front = card.front.trim();
+        const back = card.back.trim();
+        const questionKey = normalizeQuestion(front);
+        if (!front || !back || !questionKey || seenQuestions.has(questionKey)) {
+          continue;
+        }
+
+        seenQuestions.add(questionKey);
+        uniqueCards.push({ front, back });
+      }
+
+      if (uniqueCards.length !== additionalCount) {
+        throw new Error(
+          "The AI couldn’t create enough unique questions. Try a smaller number or make the topic more specific.",
+        );
+      }
+
+      setFlashcards((cards) => [
+        ...cards,
+        ...uniqueCards.map((card, index) => ({
+          ...card,
+          id: createId(cards.length + index),
+        })),
+      ]);
+      const nextRemainingSlots = remainingCardSlots - uniqueCards.length;
+      if (nextRemainingSlots > 0) {
+        setAdditionalCardCount(Math.min(3, nextRemainingSlots));
+      }
+      setAdditionalCountTouched(false);
+      setAdditionalRequestState("success");
+      showAlert(
+        `${uniqueCards.length} new ${
+          uniqueCards.length === 1 ? "card was" : "cards were"
+        } added without repeated questions.`,
+        "success",
+        setAlertMessage,
+        setOpenAlert,
+        setAlertType,
+      );
+    } catch (error) {
+      setAdditionalRequestState("error");
+      setAdditionalRequestError(
+        error instanceof Error
+          ? error.message
+          : "We couldn’t generate more cards. Your current draft is unchanged.",
+      );
+    }
+  };
+
+  const handleSaveFlashcards = async () => {
+    setShowValidation(true);
+
+    if (!deckTitle.trim()) {
+      showAlert(
+        "Give this deck a title before saving.",
+        "error",
+        setAlertMessage,
+        setOpenAlert,
+        setAlertType,
+      );
+      document.getElementById("deckTitle")?.focus();
+      return;
+    }
+
+    if (deckTitle.trim().includes("/")) {
+      showAlert(
+        "Deck titles cannot contain a forward slash (/).",
+        "error",
+        setAlertMessage,
+        setOpenAlert,
+        setAlertType,
+      );
+      document.getElementById("deckTitle")?.focus();
+      return;
+    }
+
+    if (
+      flashcards.length === 0 ||
+      flashcards.some((card) => !card.front.trim() || !card.back.trim())
+    ) {
+      showAlert(
+        "Complete every question and answer before saving.",
+        "error",
+        setAlertMessage,
+        setOpenAlert,
+        setAlertType,
+      );
+      document
+        .querySelector<HTMLTextAreaElement>('[aria-invalid="true"]')
+        ?.focus();
+      return;
+    }
+
+    if (flashcards.length > MAX_DECK_SIZE) {
+      showAlert(
+        "A deck can contain at most 20 cards.",
         "error",
         setAlertMessage,
         setOpenAlert,
@@ -188,87 +479,645 @@ export default function GenerateFlashcards() {
       return;
     }
 
+    if (!isLoaded || !user?.id) {
+      showAlert(
+        "Sign in again to save this deck.",
+        "error",
+        setAlertMessage,
+        setOpenAlert,
+        setAlertType,
+      );
+      return;
+    }
+
+    setSaveState("saving");
     try {
       const response = await fetch("/api/firestore/save_flashcards/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user.id, subject, flashcards }),
+        body: JSON.stringify({
+          userId: user.id,
+          subject: deckTitle.trim(),
+          flashcards: flashcards.map(({ front, back }) => ({
+            front: front.trim(),
+            back: back.trim(),
+          })),
+        }),
       });
 
-      if (!response.ok) {
-        throw new Error();
-      } else {
-        showAlert(
-          "Flashcards saved successfully!",
-          "success",
-          setAlertMessage,
-          setOpenAlert,
-          setAlertType,
-        );
-        router.push("/home/");
-      }
-    } catch {
+      if (!response.ok) throw new Error("Save failed");
+
+      setSaveState("saved");
       showAlert(
-        "Something went wrong. Try again!",
+        "Deck saved. Taking you to your library…",
+        "success",
+        setAlertMessage,
+        setOpenAlert,
+        setAlertType,
+      );
+      window.setTimeout(() => router.push("/home"), 650);
+    } catch {
+      setSaveState("idle");
+      showAlert(
+        "Your changes are still here, but the deck wasn’t saved. Try again.",
         "error",
         setAlertMessage,
         setOpenAlert,
         setAlertType,
       );
     }
-  }
+  };
+
+  const subjectInvalid = showValidation && !subject.trim();
+  const deckTitleInvalid =
+    showValidation &&
+    (!deckTitle.trim() || deckTitle.trim().includes("/"));
 
   return (
-    <div className="px-4 py-8 border-4 border-white rounded-lg grow bg-gradient-to-b from-indigo-100 to-indigo-200 sm:px-6 lg:px-8">
-      <div className="mx-auto">
-        <Alert message={alertMessage} openAlert={openAlert} type={alertType} />
-        {flashcards.length > 0 ? (
-          <div className="space-y-8">
-            <h1 className="text-3xl font-bold text-center text-indigo-800">
-              {subject}
-            </h1>
-            <Flashcards flashcards={flashcards} />
-            <div className="flex flex-col items-center justify-center sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-              <button
-                className="w-full px-6 py-3 text-white bg-indigo-600 sm:w-auto rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 transition duration-300"
-                onClick={() => setIsModalOpen(true)}
-              >
-                Generate Other Flashcards
-              </button>
-              <button
-                className="w-full px-6 py-3 text-white bg-green-600 sm:w-auto rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 transition duration-300"
-                onClick={handleSaveFlashcards}
-              >
-                Save Flashcards
-              </button>
+    <>
+      <div className="page-shell grow">
+        <div className="mx-auto max-w-5xl">
+          <header>
+            <p className="text-sm font-semibold text-brand-700">
+              AI-assisted creation
+            </p>
+            <h1 className="page-heading mt-2">Build a focused study deck</h1>
+            <p className="page-description mt-3">
+              Start with a topic, then review every generated card before it
+              enters your library. Nothing is saved until you approve it.
+            </p>
+          </header>
+
+          <section
+            className="surface-card mt-8 overflow-hidden"
+            aria-labelledby="generator-heading"
+          >
+            <div className="border-b border-[var(--border)] px-5 py-5 sm:px-6">
+              <div className="flex items-center gap-3">
+                <span className="grid size-10 place-items-center rounded-control bg-brand-50 text-brand-700">
+                  <HiOutlineSparkles className="size-5" aria-hidden="true" />
+                </span>
+                <div>
+                  <h2
+                    id="generator-heading"
+                    className="text-lg font-bold tracking-[-0.02em] text-ink-900"
+                  >
+                    Describe your deck
+                  </h2>
+                  <p className="mt-0.5 text-sm text-ink-500">
+                    A specific topic usually produces clearer cards.
+                  </p>
+                </div>
+              </div>
             </div>
-          </div>
-        ) : (
-          <div className="text-center">
-            <h1 className="mb-8 text-3xl font-bold text-indigo-800">
-              Generate Flashcards
-            </h1>
-            <button
-              className="px-6 py-3 text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 transition duration-300"
-              onClick={() => setIsModalOpen(true)}
+
+            <form
+              onSubmit={handleGenerate}
+              className="px-5 py-6 sm:px-6"
             >
-              Generate New Flashcards
-            </button>
-          </div>
-        )}
+              <div className="grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_10rem]">
+                <div>
+                  <label htmlFor="subject" className="field-label">
+                    Generation topic
+                  </label>
+                  <input
+                    id="subject"
+                    type="text"
+                    value={subject}
+                    onChange={(event) => {
+                      const nextSubject = event.target.value;
+                      setSubject(nextSubject);
+                      if (!deckTitleTouched) {
+                        setDeckTitle(nextSubject);
+                      }
+                      setRequestError("");
+                      setSaveState("idle");
+                    }}
+                    className="input-control"
+                    placeholder="e.g. Photosynthesis for high school biology"
+                    aria-invalid={subjectInvalid}
+                    aria-describedby={
+                      subjectInvalid ? "subject-error" : "subject-hint"
+                    }
+                    disabled={generationInProgress}
+                    maxLength={160}
+                  />
+                  {subjectInvalid ? (
+                    <p id="subject-error" className="field-error">
+                      Enter a topic before continuing.
+                    </p>
+                  ) : (
+                    <p id="subject-hint" className="field-hint">
+                      Include the level or context for clearer cards.
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor="deckTitle" className="field-label">
+                    Deck title
+                  </label>
+                  <input
+                    id="deckTitle"
+                    type="text"
+                    value={deckTitle}
+                    onChange={(event) => {
+                      setDeckTitle(event.target.value);
+                      setDeckTitleTouched(true);
+                      setRequestError("");
+                      setSaveState("idle");
+                    }}
+                    className="input-control"
+                    placeholder="e.g. Biology: Photosynthesis"
+                    aria-invalid={deckTitleInvalid}
+                    aria-describedby={
+                      deckTitleInvalid ? "deck-title-error" : "deck-title-hint"
+                    }
+                    disabled={generationInProgress}
+                    maxLength={160}
+                  />
+                  {deckTitleInvalid ? (
+                    <p id="deck-title-error" className="field-error">
+                      {!deckTitle.trim()
+                        ? "Enter a title for this deck."
+                        : "Forward slashes are not supported."}
+                    </p>
+                  ) : (
+                    <p id="deck-title-hint" className="field-hint">
+                      You can rename the deck without changing its topic.
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label htmlFor="numberOfFlashcards" className="field-label">
+                    Number of cards
+                  </label>
+                  <input
+                    id="numberOfFlashcards"
+                    type="number"
+                    min={3}
+                    max={MAX_DECK_SIZE}
+                    value={numberOfFlashcards}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setNumberOfFlashcards(value === "" ? "" : Number(value));
+                      setCardCountTouched(true);
+                      setRequestError("");
+                    }}
+                    onBlur={() => setCardCountTouched(true)}
+                    className="input-control"
+                    disabled={generationInProgress}
+                    aria-invalid={cardCountTouched && cardCountInvalid}
+                    aria-describedby={
+                      cardCountTouched && cardCountInvalid
+                        ? "card-count-error"
+                        : "card-count-hint"
+                    }
+                  />
+                  {cardCountTouched && cardCountInvalid ? (
+                    <p id="card-count-error" className="field-error">
+                      Enter a whole number between 3 and 20.
+                    </p>
+                  ) : (
+                    <p id="card-count-hint" className="field-hint">
+                      Between 3 and 20 cards.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-6 flex flex-col-reverse gap-3 border-t border-[var(--border)] pt-5 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  {flashcards.length === 0 &&
+                    requestState !== "loading" && (
+                      <Button
+                        type="button"
+                        variant="quiet"
+                        className="w-full sm:w-auto"
+                        onClick={addBlankCard}
+                        leadingIcon={<FiEdit3 className="size-4" />}
+                      >
+                        Start manually
+                      </Button>
+                    )}
+                </div>
+                <Button
+                  type="submit"
+                  size="lg"
+                  className="w-full sm:w-auto"
+                  loading={requestState === "loading"}
+                  disabled={generationInProgress}
+                  leadingIcon={<HiOutlineSparkles className="size-4" />}
+                >
+                  {requestState === "loading"
+                    ? "Generating"
+                    : flashcards.length > 0
+                      ? "New draft"
+                      : "Generate cards"}
+                </Button>
+              </div>
+            </form>
+
+            {requestError && (
+              <div
+                role="alert"
+                className="mx-5 mb-6 flex items-start gap-3 rounded-control border border-red-200 bg-[var(--danger-soft)] px-4 py-3 text-sm leading-6 text-red-900 sm:mx-6"
+              >
+                <FiAlertCircle
+                  className="mt-0.5 size-5 shrink-0 text-red-600"
+                  aria-hidden="true"
+                />
+                <div>
+                  <p className="font-semibold">Generation paused</p>
+                  <p>{requestError}</p>
+                </div>
+              </div>
+            )}
+          </section>
+
+          {requestState === "loading" && (
+            <section className="mt-8" aria-labelledby="generating-heading">
+              <div className="mb-5 flex items-center gap-3">
+                <span className="grid size-9 place-items-center rounded-full bg-brand-50 text-brand-700">
+                  <HiOutlineSparkles
+                    className="size-4 animate-pulse"
+                    aria-hidden="true"
+                  />
+                </span>
+                <div>
+                  <h2
+                    id="generating-heading"
+                    className="font-bold text-ink-900"
+                  >
+                    Drafting your flashcards
+                  </h2>
+                  <p className="text-sm text-ink-500">
+                    MemFlip is creating {cardCount} cards about{" "}
+                    <span className="font-semibold">{subject.trim()}</span>.
+                    This can take a moment.
+                  </p>
+                </div>
+              </div>
+              <GenerationSkeleton count={cardCount} />
+              <p className="sr-only" role="status" aria-live="polite">
+                Generating flashcards. Please wait.
+              </p>
+            </section>
+          )}
+
+          {requestState !== "loading" &&
+            (requestState === "success" || flashcards.length > 0) && (
+              <section className="mt-9" aria-labelledby="draft-heading">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2
+                        id="draft-heading"
+                        className="text-xl font-bold tracking-[-0.025em] text-ink-900"
+                      >
+                        Review your draft
+                      </h2>
+                      <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-bold text-amber-800">
+                        Not saved
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-ink-500">
+                      Edit for accuracy and clarity. Each card needs a question
+                      and an answer.
+                    </p>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    onClick={addBlankCard}
+                    disabled={
+                      generationInProgress || remainingCardSlots === 0
+                    }
+                    leadingIcon={<FiPlus className="size-4" />}
+                  >
+                    Add blank card
+                  </Button>
+                </div>
+
+                {remainingCardSlots > 0 ? (
+                  <form
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      generateAdditionalCards();
+                    }}
+                    className="surface-card mt-5 p-4 sm:p-5"
+                    aria-labelledby="generate-more-heading"
+                  >
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                      <div className="max-w-xl">
+                        <h3
+                          id="generate-more-heading"
+                          className="font-bold text-ink-900"
+                        >
+                          Generate more cards
+                        </h3>
+                        <p className="mt-1 text-sm leading-6 text-ink-500">
+                          Add new questions without repeating this draft. You
+                          can add up to {remainingCardSlots} more{" "}
+                          {remainingCardSlots === 1 ? "card" : "cards"}.
+                        </p>
+                      </div>
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                        <div className="sm:w-36">
+                          <label
+                            htmlFor="additionalCardCount"
+                            className="field-label"
+                          >
+                            Cards to add
+                          </label>
+                          <input
+                            id="additionalCardCount"
+                            type="number"
+                            min={1}
+                            max={remainingCardSlots}
+                            value={additionalCardCount}
+                            onChange={(event) => {
+                              const value = event.target.value;
+                              setAdditionalCardCount(
+                                value === "" ? "" : Number(value),
+                              );
+                              setAdditionalCountTouched(true);
+                              setAdditionalRequestError("");
+                            }}
+                            onBlur={() => setAdditionalCountTouched(true)}
+                            className="input-control"
+                            disabled={generationInProgress}
+                            aria-invalid={
+                              additionalCountTouched &&
+                              additionalCountInvalid
+                            }
+                            aria-describedby={
+                              additionalCountTouched &&
+                              additionalCountInvalid
+                                ? "additional-count-error"
+                                : undefined
+                            }
+                          />
+                          {additionalCountTouched &&
+                            additionalCountInvalid && (
+                              <p
+                                id="additional-count-error"
+                                className="field-error"
+                              >
+                                Enter a whole number from 1 to{" "}
+                                {remainingCardSlots}.
+                              </p>
+                            )}
+                        </div>
+                        <Button
+                          type="submit"
+                          className="sm:mt-6"
+                          loading={additionalRequestState === "loading"}
+                          disabled={
+                            generationInProgress || additionalCountInvalid
+                          }
+                          leadingIcon={
+                            <HiOutlineSparkles className="size-4" />
+                          }
+                        >
+                          {additionalRequestState === "loading"
+                            ? "Generating"
+                            : "Generate more"}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {additionalRequestError && (
+                      <div
+                        role="alert"
+                        className="mt-4 flex items-start gap-3 rounded-control border border-red-200 bg-[var(--danger-soft)] px-4 py-3 text-sm leading-6 text-red-900"
+                      >
+                        <FiAlertCircle
+                          className="mt-0.5 size-5 shrink-0 text-red-600"
+                          aria-hidden="true"
+                        />
+                        <p>{additionalRequestError}</p>
+                      </div>
+                    )}
+                    {additionalRequestState === "loading" && (
+                      <p className="sr-only" role="status" aria-live="polite">
+                        Generating {additionalCount} additional unique
+                        flashcards.
+                      </p>
+                    )}
+                  </form>
+                ) : (
+                  <div
+                    role="status"
+                    className="mt-5 flex items-center gap-3 rounded-control border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-900"
+                  >
+                    <FiCheckCircle
+                      className="size-5 shrink-0 text-brand-700"
+                      aria-hidden="true"
+                    />
+                    <p>
+                      This draft has reached the 20-card deck limit. Remove a
+                      card to add or generate another.
+                    </p>
+                  </div>
+                )}
+
+                {lastRemoved && (
+                  <div
+                    role="status"
+                    className="mt-5 flex items-center justify-between gap-4 rounded-control border border-[var(--border)] bg-white px-4 py-3 text-sm shadow-soft"
+                  >
+                    <span className="text-ink-700">Card removed from draft.</span>
+                    <button
+                      type="button"
+                      onClick={undoRemove}
+                      disabled={generationInProgress}
+                      className="min-h-9 rounded-control px-3 font-semibold text-brand-700 hover:bg-brand-50"
+                    >
+                      Undo
+                    </button>
+                  </div>
+                )}
+
+                {flashcards.length === 0 ? (
+                  <div className="surface-card mt-5">
+                    <EmptyState
+                      compact
+                      icon={<FiEdit3 className="size-6" />}
+                      title="No draft cards left"
+                      description="Add a blank card to write one manually, undo the last removal, or generate a fresh set."
+                      action={
+                        <Button
+                          variant="secondary"
+                          onClick={addBlankCard}
+                          leadingIcon={<FiPlus className="size-4" />}
+                        >
+                          Add a card
+                        </Button>
+                      }
+                    />
+                  </div>
+                ) : (
+                  <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                    {flashcards.map((card, index) => {
+                      const frontInvalid =
+                        showValidation && !card.front.trim();
+                      const backInvalid = showValidation && !card.back.trim();
+                      return (
+                        <article
+                          key={card.id}
+                          className="draft-card-enter surface-card overflow-hidden"
+                          style={{
+                            animationDelay: `${Math.min(index, 7) * 45}ms`,
+                          }}
+                        >
+                          <div className="flex items-center justify-between border-b border-[var(--border)] bg-surface-subtle px-5 py-3">
+                            <span className="text-xs font-bold uppercase tracking-[0.1em] text-ink-500">
+                              Card {index + 1}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => removeCard(card.id)}
+                              disabled={generationInProgress}
+                              className="icon-button !size-9 hover:!border-red-200 hover:!bg-red-50 hover:!text-red-700"
+                              aria-label={`Remove card ${index + 1}`}
+                            >
+                              <FiTrash2
+                                className="size-4"
+                                aria-hidden="true"
+                              />
+                            </button>
+                          </div>
+                          <div className="space-y-5 p-5">
+                            <div>
+                              <label
+                                htmlFor={`front-${card.id}`}
+                                className="field-label"
+                              >
+                                Question or term
+                              </label>
+                              <AutoResizeTextarea
+                                id={`front-${card.id}`}
+                                value={card.front}
+                                onChange={(value) =>
+                                  updateCard(card.id, "front", value)
+                                }
+                                className="input-control resize-none overflow-hidden"
+                                placeholder="What should the learner recall?"
+                                aria-invalid={frontInvalid}
+                                disabled={generationInProgress}
+                              />
+                              {frontInvalid && (
+                                <p className="field-error">
+                                  Add a question or term.
+                                </p>
+                              )}
+                            </div>
+                            <div>
+                              <label
+                                htmlFor={`back-${card.id}`}
+                                className="field-label"
+                              >
+                                Answer or explanation
+                              </label>
+                              <AutoResizeTextarea
+                                id={`back-${card.id}`}
+                                value={card.back}
+                                onChange={(value) =>
+                                  updateCard(card.id, "back", value)
+                                }
+                                className="input-control resize-none overflow-hidden"
+                                placeholder="Write the clearest useful answer."
+                                aria-invalid={backInvalid}
+                                disabled={generationInProgress}
+                              />
+                              {backInvalid && (
+                                <p className="field-error">Add an answer.</p>
+                              )}
+                            </div>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <div className="sticky bottom-4 z-20 mt-7 rounded-card border border-brand-100 bg-white/95 p-3 shadow-floating backdrop-blur sm:flex sm:items-center sm:justify-between sm:gap-4 sm:p-4">
+                  <div className="mb-3 flex items-center gap-2 text-sm sm:mb-0">
+                    {saveState === "saved" ? (
+                      <>
+                        <FiCheckCircle
+                          className="size-4 text-emerald-600"
+                          aria-hidden="true"
+                        />
+                        <span className="font-semibold text-emerald-800">
+                          Saved
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <FiEdit3
+                          className="size-4 text-ink-500"
+                          aria-hidden="true"
+                        />
+                        <span className="text-ink-500">
+                          {flashcards.length}{" "}
+                          {flashcards.length === 1 ? "card" : "cards"} in this
+                          unsaved draft
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <Button
+                    className="w-full sm:w-auto"
+                    size="lg"
+                    onClick={handleSaveFlashcards}
+                    loading={saveState === "saving"}
+                    disabled={
+                      flashcards.length === 0 || generationInProgress
+                    }
+                    leadingIcon={<FiSave className="size-4" />}
+                  >
+                    {saveState === "saving"
+                      ? "Saving deck"
+                      : saveState === "saved"
+                        ? "Deck saved"
+                        : "Save to library"}
+                  </Button>
+                </div>
+              </section>
+            )}
+        </div>
       </div>
+
       <Modal
-        isModalOpen={isModalOpen}
-        setIsModalOpen={setIsModalOpen}
-        subject={subject}
-        setSubject={setSubject}
-        numberOfFlashcards={numberOfFlashcards}
-        setNumberOfFlashcards={setNumberOfFlashcards}
-        setFlashcards={setFlashcards}
-        setOpenAlert={setOpenAlert}
-        setAlertMessage={setAlertMessage}
-        setAlertType={setAlertType}
+        open={confirmRegenerate}
+        onClose={() => setConfirmRegenerate(false)}
+        title="Replace this draft?"
+        description="Generating again will replace the cards currently in this draft. Saved decks are not affected."
+        size="sm"
+      >
+        <div className="flex flex-col-reverse gap-3 p-5 sm:flex-row sm:justify-end sm:p-6">
+          <Button
+            variant="quiet"
+            onClick={() => setConfirmRegenerate(false)}
+          >
+            Keep editing
+          </Button>
+          <Button
+            onClick={performGeneration}
+            leadingIcon={<FiRefreshCw className="size-4" />}
+          >
+            Replace draft
+          </Button>
+        </div>
+      </Modal>
+
+      <Alert
+        message={alertMessage}
+        openAlert={openAlert}
+        type={alertType}
       />
-    </div>
+    </>
   );
 }

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { saveFlashcardsSet } from "../firestoreUtils";
+import { MAX_DECK_SIZE } from "../../../flashcardConstraints";
 
 /**
  * Handles POST requests to save a flashcards set for a user.
@@ -15,9 +17,17 @@ import { saveFlashcardsSet } from "../firestoreUtils";
  */
 export async function POST(req: NextRequest) {
   const { userId, subject, flashcards } = await req.json();
+  const { userId: authenticatedUserId } = auth();
+  const cleanTitle = typeof subject === "string" ? subject.trim() : "";
 
   // Validate the input data
-  if (!userId || !subject || !Array.isArray(flashcards)) {
+  if (
+    !userId ||
+    !cleanTitle ||
+    cleanTitle.includes("/") ||
+    cleanTitle.length > 160 ||
+    !Array.isArray(flashcards)
+  ) {
     return new NextResponse(
       JSON.stringify({
         error: "Please specify userId, subject and flashcards",
@@ -26,9 +36,30 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  if (flashcards.length === 0 || flashcards.length > MAX_DECK_SIZE) {
+    return NextResponse.json(
+      { error: "A deck must contain between 1 and 20 cards" },
+      { status: 400 },
+    );
+  }
+
+  if (!authenticatedUserId) {
+    return NextResponse.json(
+      { error: "Authentication required" },
+      { status: 401 },
+    );
+  }
+
+  if (authenticatedUserId !== userId) {
+    return NextResponse.json(
+      { error: "You cannot modify this library" },
+      { status: 403 },
+    );
+  }
+
   try {
     // Save the flashcards set to Firestore
-    await saveFlashcardsSet(userId, subject, flashcards);
+    await saveFlashcardsSet(userId, cleanTitle, flashcards);
   } catch (error) {
     // Handle any errors that occur during the save operation
     return new NextResponse(
