@@ -21,7 +21,7 @@ import {
 import Button from "../components/ui/Button";
 import EmptyState from "../components/ui/EmptyState";
 import Modal from "../components/ui/Modal";
-import { encodeDeckRouteId } from "../deckRoutes";
+import { encodeDeckRouteId, getDeckViewPath } from "../deckRoutes";
 
 type LoadState = "loading" | "ready" | "error";
 type SortOrder = "opened" | "created" | "az" | "za";
@@ -458,7 +458,7 @@ export default function Home() {
                       />
                     ) : (
                       <Link
-                        href={`/decks/${encodeDeckRouteId(deck.id)}`}
+                        href={getDeckViewPath(deck.id, "study")}
                         className="absolute inset-0 z-10 rounded-card"
                         aria-label={`Study ${deck.subject}`}
                       />

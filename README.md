@@ -5,7 +5,7 @@ organising, and studying focused learning material.
 
 It combines fast AI generation with deliberate human review. Every generated
 card remains editable, nothing enters the learner's library without approval,
-and study feedback stays focused on the current session.
+and completed study feedback becomes a compact history for each deck.
 
 [Open MemFlip](https://mem-flip.live)
 
@@ -24,8 +24,13 @@ and study feedback stays focused on the current session.
 - Browse a complete deck or study one card at a time.
 - Flip cards with mouse, touch, Enter, or Space.
 - Navigate study sessions with buttons or arrow keys.
-- Reflect on recall with Again, Hard, Good, and Easy responses.
-- Review a session summary and restart the deck after rating every card.
+- Reflect on recall with Forgot, Hard, Good, and Easy responses.
+- Turn ratings into a weighted 0–100% recall score: Forgot = 0, Hard = 1,
+  Good = 2, and Easy = 3 points.
+- Follow every completed revision on an interactive line chart with 1-day,
+  1-week, 1-month, and 3-month views.
+- Inspect the date, time, and score of any trend point by hovering, focusing, or
+  selecting it.
 - Use the application comfortably across mobile, tablet, and desktop layouts.
 
 ## Product experience
@@ -68,13 +73,17 @@ interface always communicates what is happening and what to do next.
 
 ### Study
 
-Each saved deck supports two views:
+Each saved deck supports three views:
 
 - **Study:** A focused, one-card experience with progress and directional
-  navigation. Reveal the answer, rate recall as Again, Hard, Good, or Easy,
-  then review the rating totals or study the deck again.
+  navigation. Reveal the answer, rate recall as Forgot, Hard, Good, or Easy,
+  then review the rating totals, open recent deck stats, or study again.
 - **Browse all:** A responsive grid for scanning and flipping every card in the
   deck.
+- **Stats:** Latest and recent-average recall scores, an adjustable trend line,
+  and a compact history with the Forgot, Hard, Good, and Easy distribution for
+  every recent revision. Each completed session remains its own trend point,
+  including sessions completed on the same day.
 
 Flashcards use a stable 3D scene to avoid layout shifts or face bleed during
 flips. Long content scrolls within the card without changing its dimensions.
@@ -92,6 +101,7 @@ MemFlip includes:
   and scroll locking.
 - Screen-reader announcements for card side, progress, loading, errors, and
   completion.
+- Keyboard-focusable recall trend points with date, time, and score details.
 - Comfortable touch targets and sufficient colour contrast.
 - A complete `prefers-reduced-motion` fallback, including non-animated card
   flipping.
@@ -210,6 +220,17 @@ interface DeckSummary {
   createdAt: number | null;
   lastOpenedAt: number | null;
 }
+
+type RecallRating = 1 | 2 | 3 | 4;
+
+// 1 = Forgot, 2 = Hard, 3 = Good, 4 = Easy
+
+interface ReviewSession {
+  id: string;
+  completedAt: number;
+  cardCount: number;
+  ratingCounts: Record<RecallRating, number>;
+}
 ```
 
 Decks are stored in Firestore at `users/{userId}/flashcards/{deckId}`. The deck
@@ -217,8 +238,21 @@ title is its document ID; renaming a deck atomically moves its cards and
 metadata to the new ID. Creation and last-opened timestamps support library
 sorting.
 
-Again, Hard, Good, and Easy responses are intentionally session-only because
-the backend does not yet include a spaced-repetition scheduling model.
+Completed revisions are stored with each deck as a bounded history of 50
+sessions. Recall is calculated as a normalized weighted score:
+
+```text
+(Hard + 2 × Good + 3 × Easy) ÷ (3 × card count) × 100
+```
+
+Forgot contributes zero points. The result is rounded to the nearest whole
+percentage. The Stats tab shows the latest 10 sessions and their rating
+distributions. Its line chart defaults to the latest week and can display the
+last day, 30 days, or 90 days instead. Every session is retained as a separate
+point, ordered by its completion time; nearby points are spaced visually to
+remain usable. Hovering, focusing, or selecting a point reveals its exact date,
+time, and score. These scores track performance but do not yet schedule future
+review dates.
 
 ## Validation
 

@@ -1,5 +1,7 @@
 const DECK_ROUTE_PREFIX = "d_";
 
+export type DeckView = "study" | "browse-all" | "stats";
+
 export function encodeDeckRouteId(deckId: string): string {
   const bytes = new TextEncoder().encode(deckId);
   const binary = Array.from(bytes, (byte) => String.fromCharCode(byte)).join("");
@@ -32,4 +34,16 @@ export function decodeDeckRouteId(routeId: string): string {
   } catch {
     return routeId;
   }
+}
+
+export function getDeckViewPath(deckId: string, view: DeckView): string {
+  return `/decks/${encodeDeckRouteId(deckId)}/${view}`;
+}
+
+export function getDeckViewFromPath(pathname: string): DeckView {
+  const lastSegment = pathname.split("/").filter(Boolean).at(-1);
+  if (lastSegment === "browse-all" || lastSegment === "stats") {
+    return lastSegment;
+  }
+  return "study";
 }

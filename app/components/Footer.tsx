@@ -4,7 +4,7 @@ import { FaGithub, FaLinkedin } from "react-icons/fa";
 export default function Footer() {
   return (
     <footer className="border-t border-[var(--border)] bg-white">
-      <div className="mx-auto flex max-w-content flex-col items-center justify-between gap-4 px-5 py-6 text-sm text-ink-500 sm:flex-row sm:px-8">
+      <div className="mx-auto flex max-w-content flex-col items-center justify-between gap-3 px-5 py-4 text-sm text-ink-500 sm:flex-row sm:px-8">
         <p>
           <span className="font-semibold text-ink-700">MemFlip</span>
           <span aria-hidden="true"> · </span>

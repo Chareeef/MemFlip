@@ -1,9 +1,14 @@
 "use client";
 
 import { useUser } from "@clerk/nextjs";
-import { Flashcard } from "@/types";
-import { useParams, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import {
+  Flashcard,
+  MAX_REVIEW_HISTORY,
+  ReviewSession,
+  ReviewSessionDraft,
+} from "@/types";
+import { useParams, usePathname, useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 import {
   FiArrowLeft,
   FiBookOpen,
@@ -17,6 +22,8 @@ import Modal from "../../components/ui/Modal";
 import {
   decodeDeckRouteId,
   encodeDeckRouteId,
+  getDeckViewFromPath,
+  getDeckViewPath,
 } from "../../deckRoutes";
 
 type LoadState = "loading" | "ready" | "empty" | "error";
@@ -49,14 +56,46 @@ function DeckSkeleton() {
 export default function DeckPage() {
   const { user, isLoaded } = useUser();
   const router = useRouter();
+  const pathname = usePathname();
   const params = useParams<{ subject: string }>();
   const deckId = decodeDeckRouteId(params.subject);
   const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
+  const [reviewHistory, setReviewHistory] = useState<ReviewSession[]>([]);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [reloadKey, setReloadKey] = useState(0);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const [activeView, setActiveView] = useState(() =>
+    getDeckViewFromPath(pathname),
+  );
+
+  useEffect(() => {
+    const syncViewFromHistory = () => {
+      setActiveView(getDeckViewFromPath(window.location.pathname));
+    };
+    window.addEventListener("popstate", syncViewFromHistory);
+    return () => window.removeEventListener("popstate", syncViewFromHistory);
+  }, []);
+
+  useEffect(() => {
+    const routeId = encodeDeckRouteId(deckId);
+    if (pathname === `/decks/${routeId}`) {
+      window.history.replaceState(null, "", getDeckViewPath(deckId, "study"));
+      setActiveView("study");
+    } else {
+      setActiveView(getDeckViewFromPath(pathname));
+    }
+  }, [deckId, pathname]);
+
+  const changeView = useCallback(
+    (view: typeof activeView) => {
+      if (view === activeView) return;
+      window.history.pushState(null, "", getDeckViewPath(deckId, view));
+      setActiveView(view);
+    },
+    [activeView, deckId],
+  );
 
   useEffect(() => {
     if (!isLoaded || !user) return;
@@ -74,7 +113,10 @@ export default function DeckPage() {
 
         if (!response.ok) throw new Error("Unable to open deck");
 
-        const data: { flashcardsSet?: Flashcard[] } = await response.json();
+        const data: {
+          flashcardsSet?: Flashcard[];
+          reviewHistory?: ReviewSession[];
+        } = await response.json();
         if (
           !Array.isArray(data.flashcardsSet) ||
           data.flashcardsSet.length === 0
@@ -85,6 +127,9 @@ export default function DeckPage() {
         }
 
         setFlashcards(data.flashcardsSet);
+        setReviewHistory(
+          Array.isArray(data.reviewHistory) ? data.reviewHistory : [],
+        );
         setLoadState("ready");
       } catch (error) {
         if ((error as Error).name === "AbortError") return;
@@ -95,6 +140,43 @@ export default function DeckPage() {
     openDeck();
     return () => controller.abort();
   }, [deckId, isLoaded, reloadKey, user]);
+
+  const saveCompletedReview = useCallback(
+    async (draft: ReviewSessionDraft): Promise<ReviewSession> => {
+      if (!user) throw new Error("Sign in again to save this revision.");
+
+      const response = await fetch("/api/firestore/save_review_session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: user.id,
+          deckId,
+          sessionId: draft.id,
+          cardCount: draft.cardCount,
+          ratingCounts: draft.ratingCounts,
+        }),
+      });
+      const data: { session?: ReviewSession; error?: string } =
+        await response.json();
+      if (!response.ok || !data.session) {
+        const saveError = new Error(
+          data.error || "Your revision could not be saved.",
+        ) as Error & { status?: number };
+        saveError.status = response.status;
+        throw saveError;
+      }
+      const savedSession = data.session;
+
+      setReviewHistory((currentHistory) => {
+        if (currentHistory.some((session) => session.id === savedSession.id)) {
+          return currentHistory;
+        }
+        return [...currentHistory, savedSession].slice(-MAX_REVIEW_HISTORY);
+      });
+      return savedSession;
+    },
+    [deckId, user],
+  );
 
   const deleteDeck = async () => {
     if (!user) return;
@@ -126,12 +208,17 @@ export default function DeckPage() {
     return <DeckSkeleton />;
   }
 
-  if (loadState === "ready") {
+  if (loadState === "ready" && user) {
     return (
       <>
         <StudySession
           subject={deckId}
           flashcards={flashcards}
+          reviewHistory={reviewHistory}
+          onSaveReviewSession={saveCompletedReview}
+          pendingReviewStorageKey={`memflip:pending-review:${user.id}:${deckId}`}
+          mode={activeView}
+          onModeChange={changeView}
           onClose={() => router.push("/home")}
           onEdit={() =>
             router.push(`/decks/${encodeDeckRouteId(deckId)}/edit`)

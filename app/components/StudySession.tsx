@@ -1,6 +1,13 @@
 "use client";
 
-import { Flashcard } from "@/types";
+import {
+  Flashcard,
+  RatingCounts,
+  RecallRating,
+  ReviewSession,
+  ReviewSessionDraft,
+} from "@/types";
+import { DeckView } from "../deckRoutes";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FiArrowLeft,
@@ -13,28 +20,78 @@ import {
   FiTrash2,
 } from "react-icons/fi";
 import Button from "./ui/Button";
+import DeckStats from "./DeckStats";
 import Flashcards from "./Flashcards";
 
 type Direction = "next" | "previous";
-type Rating = "again" | "hard" | "good" | "easy";
-type SessionMode = "study" | "browse";
+type SaveState = "idle" | "saving" | "saved" | "error";
 
-const ratingLabels: Record<Rating, string> = {
-  again: "Again",
-  hard: "Hard",
-  good: "Good",
-  easy: "Easy",
+const ratingScores: RecallRating[] = [1, 2, 3, 4];
+const ratingLabels: Record<RecallRating, string> = {
+  1: "Forgot",
+  2: "Hard",
+  3: "Good",
+  4: "Easy",
 };
+
+function createReviewSessionId(): string {
+  if (typeof globalThis.crypto?.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
+  }
+
+  const timestamp = Date.now().toString(36);
+  const randomPart = Array.from({ length: 4 }, () =>
+    Math.random().toString(36).slice(2),
+  ).join("");
+  return `review-${timestamp}-${randomPart}`;
+}
+
+function isReviewSessionDraft(
+  value: unknown,
+  expectedCardCount: number,
+): value is ReviewSessionDraft {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Partial<ReviewSessionDraft>;
+  if (
+    typeof candidate.id !== "string" ||
+    !candidate.id ||
+    candidate.cardCount !== expectedCardCount ||
+    !candidate.ratingCounts ||
+    typeof candidate.ratingCounts !== "object"
+  ) {
+    return false;
+  }
+
+  const counts = candidate.ratingCounts as Record<string, unknown>;
+  const values = [counts[1], counts[2], counts[3], counts[4]];
+  return (
+    values.every(
+      (count) => Number.isInteger(count) && Number(count) >= 0,
+    ) &&
+    values.reduce<number>((total, count) => total + Number(count), 0) ===
+      expectedCardCount
+  );
+}
 
 export default function StudySession({
   subject,
   flashcards,
+  reviewHistory,
+  onSaveReviewSession,
+  pendingReviewStorageKey,
+  mode,
+  onModeChange,
   onClose,
   onEdit,
   onDelete,
 }: {
   subject: string;
   flashcards: Flashcard[];
+  reviewHistory: ReviewSession[];
+  onSaveReviewSession: (draft: ReviewSessionDraft) => Promise<ReviewSession>;
+  pendingReviewStorageKey: string;
+  mode: DeckView;
+  onModeChange: (view: DeckView) => void;
   onClose: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -43,12 +100,17 @@ export default function StudySession({
   const [flipped, setFlipped] = useState(false);
   const [direction, setDirection] = useState<Direction>("next");
   const [ratings, setRatings] = useState<
-    Partial<Record<number, Rating>>
+    Partial<Record<number, RecallRating>>
   >({});
   const [complete, setComplete] = useState(false);
-  const [mode, setMode] = useState<SessionMode>("study");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [saveError, setSaveError] = useState("");
+  const [completedDraft, setCompletedDraft] =
+    useState<ReviewSessionDraft | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const completionStartedRef = useRef(false);
+  const restoredStorageKeyRef = useRef<string | null>(null);
 
   const reset = useCallback(() => {
     setCurrentIndex(0);
@@ -56,7 +118,10 @@ export default function StudySession({
     setDirection("next");
     setRatings({});
     setComplete(false);
-    setMode("study");
+    setSaveState("idle");
+    setSaveError("");
+    setCompletedDraft(null);
+    completionStartedRef.current = false;
   }, []);
 
   useEffect(() => {
@@ -127,22 +192,100 @@ export default function StudySession({
 
   const ratingSummary = useMemo(
     () =>
-      Object.values(ratings).reduce<Record<Rating, number>>(
+      Object.values(ratings).reduce<RatingCounts>(
         (totals, rating) => {
           if (rating) totals[rating] += 1;
           return totals;
         },
-        { again: 0, hard: 0, good: 0, easy: 0 },
+        { 1: 0, 2: 0, 3: 0, 4: 0 },
       ),
     [ratings],
   );
 
-  const handleRating = (rating: Rating) => {
+  const persistCompletedReview = useCallback(
+    async (draft: ReviewSessionDraft) => {
+      setSaveState("saving");
+      setSaveError("");
+      try {
+        await onSaveReviewSession(draft);
+        localStorage.removeItem(pendingReviewStorageKey);
+        setSaveState("saved");
+      } catch (error) {
+        const status =
+          error && typeof error === "object" && "status" in error
+            ? Number(error.status)
+            : null;
+        if (status === 404 || status === 409) {
+          localStorage.removeItem(pendingReviewStorageKey);
+        }
+        setSaveState("error");
+        setSaveError(
+          error instanceof Error
+            ? error.message
+            : "Your revision could not be saved.",
+        );
+      }
+    },
+    [onSaveReviewSession, pendingReviewStorageKey],
+  );
+
+  useEffect(() => {
+    if (restoredStorageKeyRef.current === pendingReviewStorageKey) return;
+    restoredStorageKeyRef.current = pendingReviewStorageKey;
+
+    try {
+      const storedValue = localStorage.getItem(pendingReviewStorageKey);
+      if (!storedValue) return;
+      const parsedValue: unknown = JSON.parse(storedValue);
+      if (!isReviewSessionDraft(parsedValue, flashcards.length)) {
+        localStorage.removeItem(pendingReviewStorageKey);
+        return;
+      }
+      if (reviewHistory.some((session) => session.id === parsedValue.id)) {
+        localStorage.removeItem(pendingReviewStorageKey);
+        return;
+      }
+
+      setCompletedDraft(parsedValue);
+      void persistCompletedReview(parsedValue);
+    } catch {
+      localStorage.removeItem(pendingReviewStorageKey);
+    }
+  }, [
+    flashcards.length,
+    pendingReviewStorageKey,
+    persistCompletedReview,
+    reviewHistory,
+  ]);
+
+  const handleRating = (rating: RecallRating) => {
+    if (completionStartedRef.current) return;
+
     const nextRatings = { ...ratings, [currentIndex]: rating };
     setRatings(nextRatings);
     const ratedIndexes = Object.keys(nextRatings).map(Number);
     if (ratedIndexes.length === flashcards.length) {
+      completionStartedRef.current = true;
       setComplete(true);
+      const counts = Object.values(nextRatings).reduce<RatingCounts>(
+        (totals, score) => {
+          if (score) totals[score] += 1;
+          return totals;
+        },
+        { 1: 0, 2: 0, 3: 0, 4: 0 },
+      );
+      const draft: ReviewSessionDraft = {
+        id: createReviewSessionId(),
+        cardCount: flashcards.length,
+        ratingCounts: counts,
+      };
+      try {
+        localStorage.setItem(pendingReviewStorageKey, JSON.stringify(draft));
+      } catch {
+        // Saving still proceeds when browser storage is unavailable.
+      }
+      setCompletedDraft(draft);
+      void persistCompletedReview(draft);
     } else {
       const nextUnrated =
         Array.from({ length: flashcards.length }, (_, index) => index).find(
@@ -188,13 +331,19 @@ export default function StudySession({
             {subject}
           </h1>
           <p className="mt-0.5 text-sm leading-6 text-ink-500">
-            {complete
-              ? "Study session complete"
-              : mode === "browse"
+            {mode === "stats"
+              ? reviewHistory.length === 0
+                ? "No completed revisions yet"
+                : `${reviewHistory.length} completed ${
+                    reviewHistory.length === 1 ? "revision" : "revisions"
+                  } tracked`
+              : mode === "browse-all"
                 ? `${flashcards.length} ${
                     flashcards.length === 1 ? "card" : "cards"
                   } in this deck`
-                : `Card ${currentIndex + 1} of ${flashcards.length}`}
+                : complete
+                  ? "Study session complete"
+                  : `Card ${currentIndex + 1} of ${flashcards.length}`}
           </p>
         </div>
         <div ref={menuRef} className="relative ml-auto shrink-0">
@@ -241,18 +390,17 @@ export default function StudySession({
           )}
         </div>
       </div>
-      {!complete && (
-        <div
-          className="flex items-center gap-1 border-b border-[var(--border)] bg-white px-4 py-2 sm:px-6"
-          role="tablist"
-          aria-label="Deck view"
-        >
+      <div
+        className="flex items-center gap-1 border-b border-[var(--border)] bg-white px-4 py-2 sm:px-6"
+        role="tablist"
+        aria-label="Deck view"
+      >
           <button
             type="button"
             role="tab"
             aria-selected={mode === "study"}
             aria-controls="study-panel"
-            onClick={() => setMode("study")}
+            onClick={() => onModeChange("study")}
             className={`min-h-9 rounded-control px-3 text-sm font-semibold transition-colors ${
               mode === "study"
                 ? "bg-brand-50 text-brand-800"
@@ -264,22 +412,39 @@ export default function StudySession({
           <button
             type="button"
             role="tab"
-            aria-selected={mode === "browse"}
+            aria-selected={mode === "browse-all"}
             aria-controls="browse-panel"
-            onClick={() => setMode("browse")}
+            onClick={() => onModeChange("browse-all")}
             className={`min-h-9 rounded-control px-3 text-sm font-semibold transition-colors ${
-              mode === "browse"
+              mode === "browse-all"
                 ? "bg-brand-50 text-brand-800"
                 : "text-ink-500 hover:bg-surface-subtle hover:text-ink-900"
             }`}
           >
             Browse all
           </button>
-          <span className="ml-auto text-xs font-semibold tabular-nums text-ink-500">
-            {ratedCount}/{flashcards.length} reviewed
-          </span>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "stats"}
+            aria-controls="stats-panel"
+            onClick={() => onModeChange("stats")}
+            className={`min-h-9 rounded-control px-3 text-sm font-semibold transition-colors ${
+              mode === "stats"
+                ? "bg-brand-50 text-brand-800"
+                : "text-ink-500 hover:bg-surface-subtle hover:text-ink-900"
+            }`}
+          >
+            Stats
+          </button>
+          {mode === "study" && (
+            <span className="ml-auto hidden text-xs font-semibold tabular-nums text-ink-500 sm:block">
+              {complete
+                ? "Complete"
+                : `${ratedCount}/${flashcards.length} reviewed`}
+            </span>
+          )}
         </div>
-      )}
 
       {mode === "study" && (
         <div className="h-1 bg-surface-subtle" aria-hidden="true">
@@ -290,7 +455,24 @@ export default function StudySession({
         </div>
       )}
 
-      {mode === "browse" && !complete ? (
+      {mode === "stats" ? (
+        <div
+          id="stats-panel"
+          role="tabpanel"
+          className="flex min-h-0 grow"
+        >
+          <DeckStats
+            sessions={reviewHistory}
+            saveState={saveState}
+            saveError={saveError}
+            onRetrySave={() => {
+              if (completedDraft) {
+                void persistCompletedReview(completedDraft);
+              }
+            }}
+          />
+        </div>
+      ) : mode === "browse-all" ? (
         <div
           id="browse-panel"
           role="tabpanel"
@@ -307,11 +489,36 @@ export default function StudySession({
             Nice work — deck complete
           </h3>
           <p className="mt-2 max-w-md text-sm leading-6 text-ink-500">
-            You reviewed all {flashcards.length} cards. Your choices are a
-            quick reflection for this session and are not saved.
+            You reviewed all {flashcards.length} cards.
+            {saveState === "saved"
+              ? " This revision is saved to your deck stats."
+              : saveState === "saving"
+                ? " Saving this revision to your deck stats…"
+                : saveState === "error"
+                  ? " Your result is ready, but it has not been saved yet."
+                  : ""}
           </p>
+          {saveState === "error" && (
+            <div
+              className="mt-4 w-full max-w-lg rounded-control border border-red-200 bg-red-50 px-4 py-3 text-left"
+              role="alert"
+            >
+              <p className="text-sm font-medium text-red-800">{saveError}</p>
+              <button
+                type="button"
+                className="mt-2 text-sm font-bold text-red-800 underline decoration-red-300 underline-offset-2 hover:text-red-950"
+                onClick={() => {
+                  if (completedDraft) {
+                    void persistCompletedReview(completedDraft);
+                  }
+                }}
+              >
+                Retry saving
+              </button>
+            </div>
+          )}
           <dl className="mt-7 grid w-full max-w-lg grid-cols-2 gap-3 sm:grid-cols-4">
-            {(Object.keys(ratingLabels) as Rating[]).map((rating) => (
+            {ratingScores.map((rating) => (
               <div
                 key={rating}
                 className="rounded-control border border-[var(--border)] bg-surface-subtle px-3 py-4"
@@ -325,16 +532,23 @@ export default function StudySession({
               </div>
             ))}
           </dl>
-          <div className="mt-8 flex w-full max-w-sm flex-col-reverse gap-3 sm:flex-row">
-            <Button className="flex-1" variant="secondary" onClick={onClose}>
+          <div className="mt-8 grid w-full max-w-lg gap-3 sm:grid-cols-3">
+            <Button variant="quiet" onClick={onClose}>
               Back to library
             </Button>
             <Button
-              className="flex-1"
+              variant="secondary"
               onClick={reset}
+              disabled={saveState === "saving"}
               leadingIcon={<FiRotateCcw className="size-4" />}
             >
               Study again
+            </Button>
+            <Button
+              onClick={() => onModeChange("stats")}
+              disabled={saveState === "saving"}
+            >
+              View stats
             </Button>
           </div>
         </div>
@@ -411,32 +625,32 @@ export default function StudySession({
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <button
                       type="button"
-                      onClick={() => handleRating("again")}
-                      aria-pressed={ratings[currentIndex] === "again"}
+                      onClick={() => handleRating(1)}
+                      aria-pressed={ratings[currentIndex] === 1}
                       className="min-h-11 rounded-control border border-red-200 bg-red-50 px-3 text-sm font-semibold text-red-800 transition-colors hover:bg-red-100"
                     >
-                      Again
+                      Forgot
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleRating("hard")}
-                      aria-pressed={ratings[currentIndex] === "hard"}
+                      onClick={() => handleRating(2)}
+                      aria-pressed={ratings[currentIndex] === 2}
                       className="min-h-11 rounded-control border border-amber-200 bg-amber-50 px-3 text-sm font-semibold text-amber-800 transition-colors hover:bg-amber-100"
                     >
                       Hard
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleRating("good")}
-                      aria-pressed={ratings[currentIndex] === "good"}
+                      onClick={() => handleRating(3)}
+                      aria-pressed={ratings[currentIndex] === 3}
                       className="min-h-11 rounded-control border border-brand-200 bg-brand-50 px-3 text-sm font-semibold text-brand-800 transition-colors hover:bg-brand-100"
                     >
                       Good
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleRating("easy")}
-                      aria-pressed={ratings[currentIndex] === "easy"}
+                      onClick={() => handleRating(4)}
+                      aria-pressed={ratings[currentIndex] === 4}
                       className="min-h-11 rounded-control border border-emerald-200 bg-emerald-50 px-3 text-sm font-semibold text-emerald-800 transition-colors hover:bg-emerald-100"
                     >
                       Easy

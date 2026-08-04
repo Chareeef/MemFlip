@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { getFlashcardsSet } from "../firestoreUtils";
+import { getFlashcardsDeck } from "../firestoreUtils";
 
 /**
  * Handles POST requests to retrieve a specific flashcards set by ID for a user.
@@ -46,13 +46,13 @@ export async function POST(req: NextRequest) {
 
   try {
     // Retrieve the specific flashcards set from Firestore
-    const flashcardsSet = await getFlashcardsSet(
+    const deck = await getFlashcardsDeck(
       userId,
       requestedDeckId,
       markOpened !== false,
     );
-    if (flashcardsSet) {
-      return new NextResponse(JSON.stringify({ flashcardsSet }), {
+    if (deck) {
+      return new NextResponse(JSON.stringify(deck), {
         status: 200,
       });
     } else {
