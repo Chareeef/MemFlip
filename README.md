@@ -25,7 +25,12 @@ and completed study feedback becomes a compact history for each deck.
 - Flip cards with mouse, touch, Enter, or Space.
 - Navigate study sessions with buttons or arrow keys.
 - Reflect on recall with Forgot, Hard, Good, and Easy responses.
-- Track completed revision stats for each deck and see recent recall trends.
+- Turn ratings into a weighted 0–100% recall score: Forgot = 0, Hard = 1,
+  Good = 2, and Easy = 3 points.
+- Follow every completed revision on an interactive line chart with 1-day,
+  1-week, 1-month, and 3-month views.
+- Inspect the date, time, and score of any trend point by hovering, focusing, or
+  selecting it.
 - Use the application comfortably across mobile, tablet, and desktop layouts.
 
 ## Product experience
@@ -75,8 +80,10 @@ Each saved deck supports three views:
   then review the rating totals, open recent deck stats, or study again.
 - **Browse all:** A responsive grid for scanning and flipping every card in the
   deck.
-- **Stats:** A compact history of completed revisions with recent recall rates
-  and score distributions.
+- **Stats:** Latest and recent-average recall scores, an adjustable trend line,
+  and a compact history with the Forgot, Hard, Good, and Easy distribution for
+  every recent revision. Each completed session remains its own trend point,
+  including sessions completed on the same day.
 
 Flashcards use a stable 3D scene to avoid layout shifts or face bleed during
 flips. Long content scrolls within the card without changing its dimensions.
@@ -94,6 +101,7 @@ MemFlip includes:
   and scroll locking.
 - Screen-reader announcements for card side, progress, loading, errors, and
   completion.
+- Keyboard-focusable recall trend points with date, time, and score details.
 - Comfortable touch targets and sufficient colour contrast.
 - A complete `prefers-reduced-motion` fallback, including non-animated card
   flipping.
@@ -231,9 +239,20 @@ metadata to the new ID. Creation and last-opened timestamps support library
 sorting.
 
 Completed revisions are stored with each deck as a bounded history of 50
-sessions. The Stats tab shows the latest 10, including recall rate and the
-Forgot, Hard, Good, and Easy distribution. These scores track performance but
-do not yet schedule future review dates.
+sessions. Recall is calculated as a normalized weighted score:
+
+```text
+(Hard + 2 × Good + 3 × Easy) ÷ (3 × card count) × 100
+```
+
+Forgot contributes zero points. The result is rounded to the nearest whole
+percentage. The Stats tab shows the latest 10 sessions and their rating
+distributions. Its line chart defaults to the latest week and can display the
+last day, 30 days, or 90 days instead. Every session is retained as a separate
+point, ordered by its completion time; nearby points are spaced visually to
+remain usable. Hovering, focusing, or selecting a point reveals its exact date,
+time, and score. These scores track performance but do not yet schedule future
+review dates.
 
 ## Validation
 

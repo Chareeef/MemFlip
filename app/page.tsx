@@ -6,6 +6,7 @@ import {
   FiCheck,
   FiEdit3,
   FiLayers,
+  FiTrendingUp,
 } from "react-icons/fi";
 import { HiOutlineSparkles } from "react-icons/hi2";
 import LandingFlashcard from "./components/LandingFlashcard";
@@ -27,7 +28,7 @@ const features = [
     icon: FiBookOpen,
     title: "Study without noise",
     description:
-      "Flip through one clear card at a time with useful progress, keyboard shortcuts, and calm feedback.",
+      "Flip through one clear card at a time, rate your recall, and turn every revision into useful progress.",
   },
 ];
 
@@ -164,6 +165,186 @@ export default function LandingPage() {
               </article>
             );
           })}
+        </div>
+      </section>
+
+      <section className="bg-surface-subtle">
+        <div className="page-shell grid gap-12 py-20 lg:grid-cols-[0.82fr_1.18fr] lg:items-center lg:py-24">
+          <div className="max-w-xl">
+            <span className="grid size-11 place-items-center rounded-control bg-brand-50 text-brand-700">
+              <FiTrendingUp className="size-5" aria-hidden="true" />
+            </span>
+            <p className="mt-6 text-sm font-bold text-brand-700">
+              Progress you can read
+            </p>
+            <h2 className="mt-2 text-3xl font-extrabold tracking-[-0.045em] text-ink-900 sm:text-4xl">
+              See recall change, revision by revision.
+            </h2>
+            <p className="mt-4 text-base leading-7 text-ink-700">
+              MemFlip turns Forgot, Hard, Good, and Easy into a fair 0–100%
+              recall score. Follow every revision on a clear trend line, switch
+              the time span, and inspect any point for its date and score.
+            </p>
+            <ul className="mt-6 space-y-3 text-sm text-ink-700">
+              {[
+                "A weighted score that distinguishes hard recall from easy recall",
+                "Adjustable 1-day, 1-week, 1-month, and 3-month views",
+                "A complete rating breakdown for every recent revision",
+              ].map((item) => (
+                <li key={item} className="flex items-start gap-2.5">
+                  <FiCheck
+                    className="mt-0.5 size-4 shrink-0 text-emerald-600"
+                    aria-hidden="true"
+                  />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="rounded-[1.5rem] border border-brand-100 bg-surface-subtle p-3 shadow-floating sm:p-5">
+            <div className="rounded-card border border-[var(--border)] bg-white p-4 shadow-soft sm:p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.1em] text-brand-700">
+                    Revision stats
+                  </p>
+                  <p className="mt-1 text-lg font-bold text-ink-900">
+                    Recall trend
+                  </p>
+                </div>
+                <div
+                  className="flex rounded-control bg-surface-muted p-1 text-[0.625rem] font-semibold text-ink-500"
+                  aria-hidden="true"
+                >
+                  {[
+                    { label: "1 day", active: false },
+                    { label: "1 week", active: true },
+                    { label: "1 month", active: false },
+                    { label: "3 months", active: false },
+                  ].map(({ label, active }) => (
+                    <span
+                      key={label}
+                      className={`rounded-md px-2 py-1.5 ${
+                        active ? "bg-white text-brand-800 shadow-sm" : ""
+                      }`}
+                    >
+                      {label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-4 grid grid-cols-4 gap-1.5" aria-label="Recall weights">
+                {[
+                  ["0", "Forgot", "border-red-100 bg-red-50 text-red-800"],
+                  ["1", "Hard", "border-amber-100 bg-amber-50 text-amber-900"],
+                  ["2", "Good", "border-brand-100 bg-brand-50 text-brand-800"],
+                  ["3", "Easy", "border-emerald-100 bg-emerald-50 text-emerald-800"],
+                ].map(([score, label, color]) => (
+                  <span
+                    key={label}
+                    className={`rounded-md border px-1.5 py-2 text-center text-[0.625rem] font-bold sm:text-xs ${color}`}
+                  >
+                    <span className="mr-1 tabular-nums">{score}</span>
+                    {label}
+                  </span>
+                ))}
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <div className="rounded-control bg-surface-muted p-3">
+                  <p className="text-[0.6875rem] font-semibold text-ink-500">
+                    Latest recall
+                  </p>
+                  <p className="mt-0.5 text-xl font-extrabold tabular-nums text-ink-900">
+                    83%
+                  </p>
+                </div>
+                <div className="rounded-control bg-surface-muted p-3">
+                  <p className="text-[0.6875rem] font-semibold text-ink-500">
+                    Recent average
+                  </p>
+                  <p className="mt-0.5 text-xl font-extrabold tabular-nums text-ink-900">
+                    72%
+                  </p>
+                </div>
+              </div>
+
+              <svg
+                className="mt-4 h-auto w-full"
+                viewBox="0 0 520 180"
+                role="img"
+                aria-label="Example recall trend rising from 42 percent to 83 percent across six revisions"
+              >
+                {[20, 82, 144].map((y, index) => (
+                  <g key={y} aria-hidden="true">
+                    <line
+                      x1="40"
+                      x2="510"
+                      y1={y}
+                      y2={y}
+                      className="stroke-slate-200"
+                      strokeDasharray={index === 1 ? "4 5" : undefined}
+                    />
+                    <text
+                      x="32"
+                      y={y + 3}
+                      textAnchor="end"
+                      className="fill-slate-400 text-[9px] font-medium"
+                    >
+                      {[100, 50, 0][index]}%
+                    </text>
+                  </g>
+                ))}
+                <polyline
+                  points="48,118 132,95 226,105 315,69 412,80 502,41"
+                  fill="none"
+                  className="stroke-brand-500"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                />
+                {[
+                  [48, 118],
+                  [132, 95],
+                  [226, 105],
+                  [315, 69],
+                  [412, 80],
+                  [502, 41],
+                ].map(([x, y]) => (
+                  <circle
+                    key={`${x}-${y}`}
+                    cx={x}
+                    cy={y}
+                    r="5"
+                    className="fill-white stroke-brand-700 stroke-[3]"
+                    aria-hidden="true"
+                  />
+                ))}
+                <text x="40" y="169" className="fill-slate-400 text-[9px] font-medium">
+                  Mon
+                </text>
+                <text
+                  x="272"
+                  y="169"
+                  textAnchor="middle"
+                  className="fill-slate-400 text-[9px] font-medium"
+                >
+                  Thu
+                </text>
+                <text
+                  x="510"
+                  y="169"
+                  textAnchor="end"
+                  className="fill-slate-400 text-[9px] font-medium"
+                >
+                  Today
+                </text>
+              </svg>
+            </div>
+          </div>
         </div>
       </section>
 
