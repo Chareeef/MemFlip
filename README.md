@@ -91,6 +91,8 @@ The deck menu also provides direct edit and delete actions.
 
 ![Study a saved flashcard deck](public/screenshots/review_flashcards.png)
 
+![Track recall in deck stats](public/screenshots/deck_stats.png)
+
 ## Accessibility
 
 MemFlip includes:
