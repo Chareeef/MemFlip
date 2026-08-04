@@ -19,7 +19,7 @@ import EmptyState from "../../../components/ui/EmptyState";
 import Modal from "../../../components/ui/Modal";
 import {
   decodeDeckRouteId,
-  encodeDeckRouteId,
+  getDeckViewPath,
 } from "../../../deckRoutes";
 import {
   MAX_DECK_SIZE,
@@ -333,7 +333,7 @@ export default function EditDeckPage() {
         throw new Error(data.error || "The deck could not be saved.");
       }
 
-      router.push(`/decks/${encodeDeckRouteId(data.deckId)}`);
+      router.push(getDeckViewPath(data.deckId, "study"));
     } catch (error) {
       setSaveError(
         error instanceof Error
@@ -386,7 +386,7 @@ export default function EditDeckPage() {
               <Button
                 variant="quiet"
                 onClick={() =>
-                  router.push(`/decks/${encodeDeckRouteId(deckId)}`)
+                  router.push(getDeckViewPath(deckId, "study"))
                 }
                 leadingIcon={<FiArrowLeft className="size-4" />}
               >
@@ -412,7 +412,7 @@ export default function EditDeckPage() {
           <button
             type="button"
             onClick={() =>
-              router.push(`/decks/${encodeDeckRouteId(deckId)}`)
+              router.push(getDeckViewPath(deckId, "study"))
             }
             className="inline-flex min-h-10 items-center gap-2 rounded-control px-3 text-sm font-semibold text-ink-700 hover:bg-white"
           >

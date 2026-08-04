@@ -94,7 +94,7 @@ export default function LandingPage() {
                   />
                   <div>
                     <p className="text-sm font-bold text-ink-900">
-                      Cell biology
+                      Classic literature
                     </p>
                     <p className="text-xs text-ink-500">Card 4 of 12</p>
                   </div>
@@ -108,7 +108,7 @@ export default function LandingPage() {
               </div>
               <LandingFlashcard />
               <div className="mt-4 grid grid-cols-4 gap-2" aria-hidden="true">
-                {["Again", "Hard", "Good", "Easy"].map((label, index) => (
+                {["Forgot", "Hard", "Good", "Easy"].map((label, index) => (
                   <span
                     key={label}
                     className={`rounded-control border px-2 py-2 text-center text-xs font-semibold ${
