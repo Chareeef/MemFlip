@@ -15,6 +15,10 @@ const signedInLinks = [
 export default function Header() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const isNoAuthPage =
+    pathname === "/" ||
+    pathname.startsWith("/sign-in") ||
+    pathname.startsWith("/sign-up");
 
   useEffect(() => {
     setMobileOpen(false);
@@ -29,6 +33,23 @@ export default function Header() {
         : "text-ink-700 hover:bg-surface-subtle hover:text-ink-900"
     }`;
   };
+
+  const mobileMenuButton = (
+    <button
+      type="button"
+      className="icon-button"
+      aria-expanded={mobileOpen}
+      aria-controls="mobile-navigation"
+      aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
+      onClick={() => setMobileOpen((open) => !open)}
+    >
+      {mobileOpen ? (
+        <FiX className="size-5" aria-hidden="true" />
+      ) : (
+        <FiMenu className="size-5" aria-hidden="true" />
+      )}
+    </button>
+  );
 
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-white/95 backdrop-blur-md">
@@ -85,18 +106,22 @@ export default function Header() {
             </div>
           </SignedIn>
           <SignedOut>
-            <Link
-              href="/sign-in"
-              className="inline-flex min-h-10 items-center rounded-control px-3 text-sm font-semibold text-ink-700 hover:bg-surface-subtle"
-            >
-              Sign in
-            </Link>
-            <Link
-              href="/sign-up"
-              className="inline-flex min-h-10 items-center rounded-control bg-brand-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
-            >
-              Get started
-            </Link>
+            {isNoAuthPage && (
+              <>
+                <Link
+                  href="/sign-in"
+                  className="inline-flex min-h-10 items-center rounded-control px-3 text-sm font-semibold text-ink-700 hover:bg-surface-subtle"
+                >
+                  Sign in
+                </Link>
+                <Link
+                  href="/sign-up"
+                  className="inline-flex min-h-10 items-center rounded-control bg-brand-600 px-4 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
+                >
+                  Get started
+                </Link>
+              </>
+            )}
           </SignedOut>
         </div>
 
@@ -104,20 +129,11 @@ export default function Header() {
           <SignedIn>
             <UserButton afterSignOutUrl="/" />
           </SignedIn>
-          <button
-            type="button"
-            className="icon-button"
-            aria-expanded={mobileOpen}
-            aria-controls="mobile-navigation"
-            aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
-            onClick={() => setMobileOpen((open) => !open)}
-          >
-            {mobileOpen ? (
-              <FiX className="size-5" aria-hidden="true" />
-            ) : (
-              <FiMenu className="size-5" aria-hidden="true" />
-            )}
-          </button>
+          {isNoAuthPage ? (
+            mobileMenuButton
+          ) : (
+            <SignedIn>{mobileMenuButton}</SignedIn>
+          )}
         </div>
       </div>
 
@@ -154,17 +170,19 @@ export default function Header() {
             </nav>
           </SignedIn>
           <SignedOut>
-            <nav className="grid gap-2" aria-label="Account navigation">
-              <Link href="/sign-in" className={linkClass("/sign-in")}>
-                Sign in
-              </Link>
-              <Link
-                href="/sign-up"
-                className="inline-flex min-h-11 items-center justify-center rounded-control bg-brand-600 px-4 text-sm font-semibold text-white"
-              >
-                Get started
-              </Link>
-            </nav>
+            {isNoAuthPage && (
+              <nav className="grid gap-2" aria-label="Account navigation">
+                <Link href="/sign-in" className={linkClass("/sign-in")}>
+                  Sign in
+                </Link>
+                <Link
+                  href="/sign-up"
+                  className="inline-flex min-h-11 items-center justify-center rounded-control bg-brand-600 px-4 text-sm font-semibold text-white"
+                >
+                  Get started
+                </Link>
+              </nav>
+            )}
           </SignedOut>
         </div>
       )}
